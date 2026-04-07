@@ -1,0 +1,3 @@
+[build]
+buildCommand = "dotnet restore && dotnet publish -c Release -o out"
+startCommand = "dotnet out/KondoKoInventorySystem_Backend.dll"
