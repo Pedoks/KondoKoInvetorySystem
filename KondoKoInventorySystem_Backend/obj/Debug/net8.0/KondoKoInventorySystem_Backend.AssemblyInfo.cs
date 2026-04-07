@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KondoKoInventorySystem_Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1ee9d14afca8d22668e74c21a920ff8616459aa3")]
 [assembly: System.Reflection.AssemblyProductAttribute("KondoKoInventorySystem_Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KondoKoInventorySystem_Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
