@@ -2,11 +2,11 @@
 
 # ── Backend ──────────────────────────
 .env
-backend/bin/
-backend/obj/
-backend/*.user
-backend/.vs/
-backend/appsettings.Development.json
+bin/
+obj/
+*.user
+.vs/
+appsettings.Development.json
 
 # ── Flutter ───────────────────────────
 flutter/.dart_tool/

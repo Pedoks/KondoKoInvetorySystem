@@ -1,11 +1,11 @@
 
 # ── Backend ──────────────────────────
 .env
-backend/bin/
-backend/obj/
-backend/*.user
-backend/.vs/
-backend/appsettings.Development.json
+KondoKoInventorySystem_Backend/bin/
+KondoKoInventorySystem_Backend/obj/
+KondoKoInventorySystem_Backend/*.user
+KondoKoInventorySystem_Backend/.vs/
+KondoKoInventorySystem_Backend/appsettings.Development.json
 
 # ── Flutter ───────────────────────────
 flutter/.dart_tool/
