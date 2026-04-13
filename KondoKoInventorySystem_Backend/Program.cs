@@ -7,6 +7,16 @@ using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── ADD THIS: Configure Kestrel to listen on all interfaces ──
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // Listen on all network interfaces for port 5053
+    options.ListenAnyIP(5053);
+    
+    // Also keep localhost for debugging (optional)
+    // options.ListenLocalhost(5053);
+});
+
 Env.Load(); 
 
 // MongoDB
@@ -60,4 +70,25 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// ── ADD THIS: Print the URLs where the app is running ──
+Console.WriteLine("=== Server Starting ===");
+Console.WriteLine($"Local URL: http://localhost:5053");
+Console.WriteLine($"Network URL: http://{GetLocalIpAddress()}:5053");
+Console.WriteLine("========================");
+
 app.Run();
+
+// ── ADD THIS helper method to get local IP address ──
+static string GetLocalIpAddress()
+{
+    var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+    foreach (var ip in host.AddressList)
+    {
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return ip.ToString();
+        }
+    }
+    return "127.0.0.1";
+}

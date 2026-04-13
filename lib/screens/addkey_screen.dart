@@ -14,20 +14,18 @@ class AddKeyScreen extends StatefulWidget {
 }
 
 class _AddKeyScreenState extends State<AddKeyScreen> {
-  // Main form
   final _mainFormKey    = GlobalKey<FormState>();
   final _barcodeCtrl    = TextEditingController();
   final _ownerCtrl      = TextEditingController();
   final _unitCtrl       = TextEditingController();
   final _keyHolderCtrl  = TextEditingController();
-  final _tagCtrl        = TextEditingController();
+
   String?  _keyType;
   String?  _unitStatus;
+  String?  _keyCode;         // ← was _tagCtrl free-text, now dropdown
   DateTime _selectedDate = DateTime.now();
 
-  // Extra key cards (same owner — only barcode + keyType)
   final List<_ExtraKeyData> _extraKeys = [];
-
   bool _isSubmitting = false;
 
   static const List<String> _keyTypeOptions = [
@@ -37,6 +35,9 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
   static const List<String> _unitStatusOptions = [
     'Rented', 'Terminated',
   ];
+  static const List<String> _keyCodeOptions = [
+    'Code 0', 'Code 1', 'Code 2', 'Code 3', 'Code 4',
+  ];
 
   @override
   void dispose() {
@@ -44,7 +45,6 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     _ownerCtrl.dispose();
     _unitCtrl.dispose();
     _keyHolderCtrl.dispose();
-    _tagCtrl.dispose();
     for (final e in _extraKeys) e.dispose();
     super.dispose();
   }
@@ -55,6 +55,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
   void _removeExtraKey(int index) =>
       setState(() => _extraKeys.removeAt(index));
 
+  /// Scan into any barcode controller — works for both initial scan and rescan
   Future<void> _scanBarcode(TextEditingController ctrl) async {
     final result = await Navigator.push<String>(
       context,
@@ -101,11 +102,11 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
         'keyType':    _keyType    ?? '',
         'unitStatus': _unitStatus ?? '',
         'keyHolder':  _keyHolderCtrl.text.trim(),
-        'keyCode':    _tagCtrl.text.trim(),
+        'keyCode':    _keyCode    ?? '',          // ← dropdown value
         'date':       _selectedDate.toIso8601String(),
       });
 
-      // Extra keys — inherit all owner data, only barcode+keyType differ
+      // Extra keys
       for (final e in _extraKeys) {
         await service.createKey({
           'barcode':    e.barcodeCtrl.text.trim(),
@@ -114,7 +115,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
           'keyType':    e.keyType ?? '',
           'unitStatus': _unitStatus ?? '',
           'keyHolder':  _keyHolderCtrl.text.trim(),
-          'keyCode':    _tagCtrl.text.trim(),
+          'keyCode':    _keyCode ?? '',
           'date':       _selectedDate.toIso8601String(),
         });
       }
@@ -182,11 +183,9 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 36, height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(
-                              AppConstants.primaryColorValue),
+                          color: const Color(AppConstants.primaryColorValue),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.key,
@@ -217,74 +216,76 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                       key: _mainFormKey,
                       child: Column(
                         children: [
-                          // Barcode
+                          // ── Barcode with rescan support ──
                           _BarcodeRow(
                             controller: _barcodeCtrl,
-                            onScanTap: () =>
-                                _scanBarcode(_barcodeCtrl),
+                            onScanTap:  () => _scanBarcode(_barcodeCtrl),
                           ),
                           const SizedBox(height: 10),
+
                           // Owner
                           _KField(
                             controller: _ownerCtrl,
                             hint: "Owner's Name",
                             icon: Icons.person_outline,
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Required'
-                                : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
+
                           // Unit
                           _KField(
                             controller: _unitCtrl,
                             hint: 'Unit',
                             icon: Icons.grid_view_outlined,
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Required'
-                                : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
+
                           // Key Type
                           _KDropdown(
-                            value: _keyType,
-                            hint: 'Key Type',
-                            icon: Icons.vpn_key_outlined,
-                            items: _keyTypeOptions,
-                            onChanged: (v) =>
-                                setState(() => _keyType = v),
-                            validator: (v) =>
-                                v == null ? 'Required' : null,
+                            value:     _keyType,
+                            hint:      'Key Type',
+                            icon:      Icons.vpn_key_outlined,
+                            items:     _keyTypeOptions,
+                            onChanged: (v) => setState(() => _keyType = v),
+                            validator: (v) => v == null ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
+
                           // Unit Status
                           _KDropdown(
-                            value: _unitStatus,
-                            hint: 'Unit Status',
-                            icon: Icons.info_outline,
-                            items: _unitStatusOptions,
-                            onChanged: (v) =>
-                                setState(() => _unitStatus = v),
-                            validator: (v) =>
-                                v == null ? 'Required' : null,
+                            value:     _unitStatus,
+                            hint:      'Unit Status',
+                            icon:      Icons.info_outline,
+                            items:     _unitStatusOptions,
+                            onChanged: (v) => setState(() => _unitStatus = v),
+                            validator: (v) => v == null ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
+
                           // Key Holder
                           _KField(
                             controller: _keyHolderCtrl,
                             hint: 'Key Holder',
                             icon: Icons.people_outline,
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Required'
-                                : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
-                          // Tag
-                          _KField(
-                            controller: _tagCtrl,
-                            hint: 'Tag',
-                            icon: Icons.label_outline,
+
+                          // ── Key Code (was "Tag") — now a dropdown ──
+                          _KDropdown(
+                            value:     _keyCode,
+                            hint:      'Key Code',
+                            icon:      Icons.label_outline,
+                            items:     _keyCodeOptions,
+                            onChanged: (v) => setState(() => _keyCode = v),
+                            // not required — optional field
                           ),
                           const SizedBox(height: 10),
+
                           // Date
                           GestureDetector(
                             onTap: _pickDate,
@@ -311,11 +312,11 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: _ExtraKeyCard(
-                        key: ValueKey(e.id),
-                        data: e,
-                        keyTypeOptions: _keyTypeOptions,
-                        onRemove: () => _removeExtraKey(i),
-                        onScanTap: () => _scanBarcode(e.barcodeCtrl),
+                        key:             ValueKey(e.id),
+                        data:            e,
+                        keyTypeOptions:  _keyTypeOptions,
+                        onRemove:        () => _removeExtraKey(i),
+                        onScanTap:       () => _scanBarcode(e.barcodeCtrl),
                         onKeyTypeChanged: (v) =>
                             setState(() => e.keyType = v),
                       ),
@@ -349,12 +350,9 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          height: 20, width: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
+                            color: Colors.white, strokeWidth: 2.5),
                         )
                       : const Text(
                           'Submit',
@@ -433,11 +431,9 @@ class _ExtraKeyCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 32, height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(
-                            AppConstants.primaryColorValue),
+                        color: const Color(AppConstants.primaryColorValue),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.key,
@@ -464,7 +460,7 @@ class _ExtraKeyCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Barcode
+            // Barcode (with rescan built in via _BarcodeRow)
             _BarcodeRow(
               controller: data.barcodeCtrl,
               onScanTap:  onScanTap,
@@ -488,7 +484,7 @@ class _ExtraKeyCard extends StatelessWidget {
   }
 }
 
-// ── Barcode Row ────────────────────────────────────────
+// ── Barcode Row — shows Scan on empty, Rescan when filled ─
 class _BarcodeRow extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback          onScanTap;
@@ -500,37 +496,62 @@ class _BarcodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextFormField(
-            controller: controller,
-            readOnly:   true,
-            style: const TextStyle(fontSize: 14),
-            decoration: _kInputDeco('Scan Barcode', null),
-          ),
-        ),
-        const SizedBox(width: 10),
-        ElevatedButton(
-          onPressed: onScanTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor:
-                const Color(AppConstants.successColorValue),
-            shape: const StadiumBorder(),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 22, vertical: 15),
-            elevation: 0,
-          ),
-          child: const Text(
-            'Scan',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (_, value, __) {
+        final hasValue = value.text.isNotEmpty;
+        return Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                readOnly:   true,
+                style: const TextStyle(fontSize: 14),
+                decoration: _kInputDeco(
+                  hasValue ? value.text : 'Scan Barcode',
+                  null,
+                ).copyWith(
+                  hintStyle: TextStyle(
+                    color: hasValue ? Colors.black87 : Colors.black38,
+                    fontSize: 14,
+                    fontWeight: hasValue
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(width: 10),
+            ElevatedButton.icon(
+              onPressed: onScanTap,
+              icon: Icon(
+                hasValue
+                    ? Icons.qr_code_scanner
+                    : Icons.qr_code_scanner,
+                size: 16,
+                color: Colors.white,
+              ),
+              label: Text(
+                hasValue ? 'Rescan' : 'Scan',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: hasValue
+                    ? Colors.orange.shade700
+                    : const Color(AppConstants.successColorValue),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 15),
+                elevation: 0,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -592,8 +613,7 @@ class _KDropdown extends StatelessWidget {
           color: Colors.black38),
       dropdownColor:
           const Color(AppConstants.backgroundColorValue),
-      style: const TextStyle(
-          fontSize: 14, color: Colors.black87),
+      style: const TextStyle(fontSize: 14, color: Colors.black87),
       items: items
           .map((e) => DropdownMenuItem(value: e, child: Text(e)))
           .toList(),
@@ -609,8 +629,8 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     prefixIcon: icon != null
         ? Icon(icon, color: Colors.black38, size: 18)
         : null,
-    filled:     true,
-    fillColor:  const Color(AppConstants.backgroundColorValue),
+    filled:    true,
+    fillColor: const Color(AppConstants.backgroundColorValue),
     contentPadding: const EdgeInsets.symmetric(
         vertical: 14, horizontal: 16),
     border: OutlineInputBorder(
@@ -634,17 +654,16 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: Colors.red.shade400, width: 1.5),
+      borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
     ),
   );
 }
 
 // ── Extra Key Data ─────────────────────────────────────
 class _ExtraKeyData {
-  final String id       = UniqueKey().toString();
-  final formKey         = GlobalKey<FormState>();
-  final barcodeCtrl     = TextEditingController();
+  final String id      = UniqueKey().toString();
+  final formKey        = GlobalKey<FormState>();
+  final barcodeCtrl    = TextEditingController();
   String? keyType;
 
   void dispose() => barcodeCtrl.dispose();

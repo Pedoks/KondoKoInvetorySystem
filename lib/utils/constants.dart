@@ -5,7 +5,7 @@ class AppConstants {
 static const bool isProduction = false;
 
 static const String baseUrl = isProduction
-    ? 'https://your-deployed-domain.com/api'
+    ? 'https://kondokoinvetorysystem-production.up.railway.app/api'
     : 'http://10.0.2.2:5053/api';
   // Use http://localhost:5000/api for Web / Desktop
   // Use http://10.0.2.2:5000/api  for Android Emulator

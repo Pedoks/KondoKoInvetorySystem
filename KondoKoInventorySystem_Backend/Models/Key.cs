@@ -1,3 +1,5 @@
+// KondoKoInventorySystem_Backend/Models/Key.cs
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -32,4 +34,8 @@ public class Key
 
     [BsonElement("date")]
     public DateTime Date { get; set; } = DateTime.UtcNow;
+
+    // NEW: Group ID for grouping keys from same unit/owner
+    [BsonElement("groupId")]
+    public string? GroupId { get; set; }
 }

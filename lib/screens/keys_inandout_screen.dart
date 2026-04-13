@@ -154,20 +154,33 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     }
   }
 
-  // ── Row Check-In button → scan modal ──────────────────
-  void _showRowCheckInModal(KeyTransactionModel tx) {
-    showDialog(
-      context: context,
-      builder: (_) => _ScanCheckInModal(
-        unit:    tx.unit,
-        service: _service,
-        onSuccess: () {
-          _showSuccess('Key checked in successfully!');
-          _loadTable();
-        },
-        onError: _showError,
+  // ── Row Check-In button → direct scan for security ──────────────────
+  void _showRowCheckInScan(KeyTransactionModel tx) async {
+    // Force re-scan for security
+    final scanned = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BarcodeScannerScreen(
+          hintLabel: 'Scan key barcode to check in',
+        ),
       ),
     );
+    
+    if (scanned == null || !mounted) return;
+    
+    // Verify the scanned barcode matches the transaction
+    if (scanned != tx.barcode) {
+      _showError('Barcode mismatch! Please scan the correct key.');
+      return;
+    }
+    
+    try {
+      await _service.checkIn(scanned);
+      _showSuccess('Key checked in successfully!');
+      _loadTable();
+    } catch (e) {
+      _showError('$e');
+    }
   }
 
   void _showError(String msg) {
@@ -308,7 +321,7 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
                           : _TransactionTable(
                               data:     _tableData,
                               filter:   _filter,
-                              onCheckIn: _showRowCheckInModal,
+                              onCheckIn: _showRowCheckInScan,
                             ),
                 ],
               ),
@@ -442,7 +455,7 @@ class _TransactionTable extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
                     _showGlobal ? 'User' : 'Unit Name',
                     textAlign: TextAlign.center,
@@ -451,9 +464,9 @@ class _TransactionTable extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
-                    _showGlobal ? 'Unit' : 'Time Out Date',
+                    _showGlobal ? 'Unit' : 'Check-Out',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 13),
@@ -463,9 +476,9 @@ class _TransactionTable extends StatelessWidget {
                   flex: 3,
                   child: Text(
                     filter == _TableFilter.history
-                        ? 'Check-In Date'
+                        ? 'Check-In'
                         : filter == _TableFilter.globalHistory
-                            ? 'Status'
+                            ? 'Transaction Period'
                             : 'Action',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -507,17 +520,19 @@ class _TransactionRow extends StatelessWidget {
     required this.onCheckIn,
   });
 
+  String _formatDate(DateTime date) {
+    return DateFormat('MM/dd/yy hh:mm a').format(date.toLocal());
+  }
+
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('MM/dd/yy');
-
     String col1, col2;
     Widget col3;
 
     switch (filter) {
       case _TableFilter.checkedOut:
         col1 = tx.unit;
-        col2 = fmt.format(tx.checkOutDate.toLocal());
+        col2 = _formatDate(tx.checkOutDate);
         col3 = GestureDetector(
           onTap: onCheckIn,
           child: Container(
@@ -538,42 +553,143 @@ class _TransactionRow extends StatelessWidget {
           ),
         );
         break;
+        
       case _TableFilter.history:
         col1 = tx.unit;
-        col2 = fmt.format(tx.checkOutDate.toLocal());
-        col3 = Text(
-          tx.checkInDate != null
-              ? fmt.format(tx.checkInDate!.toLocal())
-              : '—',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: Colors.black87),
-        );
+        col2 = _formatDate(tx.checkOutDate);
+        if (tx.checkInDate != null) {
+          col3 = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.login, size: 12, color: const Color(AppConstants.successColorValue)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatDate(tx.checkInDate!),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(AppConstants.successColorValue).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _calculateDuration(tx.checkOutDate, tx.checkInDate!),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(AppConstants.successColorValue),
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          col3 = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(AppConstants.primaryColorValue).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'PENDING',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+            ),
+          );
+        }
         break;
+        
       case _TableFilter.globalHistory:
         col1 = tx.userName;
         col2 = tx.unit;
-        col3 = Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: tx.isCheckedOut
-                ? const Color(AppConstants.primaryColorValue)
-                    .withOpacity(0.15)
-                : const Color(AppConstants.successColorValue)
-                    .withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            tx.isCheckedOut ? 'Out' : 'In',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: tx.isCheckedOut
-                  ? const Color(AppConstants.primaryColorValue)
-                  : const Color(AppConstants.successColorValue),
+        // Timeline style showing both dates
+        col3 = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: const Color(AppConstants.primaryColorValue),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.logout, size: 10, color: Colors.white),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _formatDate(tx.checkOutDate),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
-          ),
+            if (tx.checkInDate != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: const Color(AppConstants.successColorValue),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.login, size: 10, color: Colors.white),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatDate(tx.checkInDate!),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(AppConstants.successColorValue).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _calculateDuration(tx.checkOutDate, tx.checkInDate!),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(AppConstants.successColorValue),
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(AppConstants.primaryColorValue).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.access_time, size: 10),
+                    SizedBox(width: 4),
+                    Text(
+                      'CURRENTLY OUT',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
         break;
     }
@@ -594,13 +710,13 @@ class _TransactionRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Text(col1,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13)),
           ),
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Text(col2,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13)),
@@ -613,142 +729,18 @@ class _TransactionRow extends StatelessWidget {
       ),
     );
   }
-}
 
-// ── Scan Check-In Modal (Image 3) ──────────────────────
-class _ScanCheckInModal extends StatefulWidget {
-  final String                unit;
-  final KeyTransactionService service;
-  final VoidCallback          onSuccess;
-  final void Function(String) onError;
-
-  const _ScanCheckInModal({
-    required this.unit,
-    required this.service,
-    required this.onSuccess,
-    required this.onError,
-  });
-
-  @override
-  State<_ScanCheckInModal> createState() => _ScanCheckInModalState();
-}
-
-class _ScanCheckInModalState extends State<_ScanCheckInModal> {
-  final _ctrl = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _scan() async {
-    Navigator.pop(context); // close modal first
-    final scanned = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const BarcodeScannerScreen(
-          hintLabel: 'Scan to Check-In',
-        ),
-      ),
-    );
-    if (scanned == null || !mounted) return;
-
-    setState(() {
-      _ctrl.text  = scanned;
-      _isLoading  = true;
-    });
-
-    try {
-      await widget.service.checkIn(scanned);
-      widget.onSuccess();
-    } catch (e) {
-      widget.onError('$e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  String _calculateDuration(DateTime start, DateTime end) {
+    final difference = end.difference(start);
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ${difference.inHours.remainder(24)}h';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ${difference.inMinutes.remainder(60)}m';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m';
+    } else {
+      return '${difference.inSeconds}s';
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: size.width * 0.06,
-        vertical:   size.height * 0.3,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(AppConstants.lightOrangeValue),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(
-                            AppConstants.primaryColorValue),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.qr_code_scanner,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Scan Key Barcode',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close,
-                      size: 22, color: Colors.black54),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Scan row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _ctrl,
-                    readOnly:   true,
-                    decoration:
-                        _scanFieldDeco('Scan to Check-In'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _GreenScanBtn(onTap: _scan),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

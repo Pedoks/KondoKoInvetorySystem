@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kondokoinventorysystem/screens/item_screen.dart';
+import 'package:kondokoinventorysystem/screens/settings_screen.dart';
 import '../utils/constants.dart';
 import '../widgets/navbar.dart';
 import 'keydashboard_screen.dart';
@@ -159,14 +160,17 @@ class _KondoAppBar extends StatelessWidget {
           ),
 
           // Settings icon
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.settings_outlined,
-              color: Colors.white,
-              size: 26,
-            ),
-          ),
+IconButton(
+  onPressed: () => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+  ),
+  icon: const Icon(
+    Icons.settings_outlined,
+    color: Colors.white,
+    size: 26,
+  ),
+),
         ],
       ),
     );

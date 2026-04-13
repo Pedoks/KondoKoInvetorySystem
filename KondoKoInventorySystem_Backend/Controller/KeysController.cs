@@ -67,4 +67,42 @@ public class KeysController : ControllerBase
         if (!deleted) return NotFound(new { message = "Key not found." });
         return Ok(new { message = "Key deleted successfully." });
     }
+
+
+// GET api/keys/groups
+[HttpGet("groups")]
+public async Task<IActionResult> GetAllGroups()
+{
+    var groups = await _keysService.GetAllGroupsAsync();
+    return Ok(groups);
+}
+
+// GET api/keys/group/{groupId}
+[HttpGet("group/{groupId}")]
+public async Task<IActionResult> GetGroupById(string groupId)
+{
+    var group = await _keysService.GetGroupByIdAsync(groupId);
+    if (group == null) return NotFound(new { message = "Group not found." });
+    return Ok(group);
+}
+
+// POST api/keys/add-to-group
+[HttpPost("add-to-group")]
+public async Task<IActionResult> AddKeyToGroup([FromBody] AddKeyToGroupDto dto)
+{
+    if (!ModelState.IsValid) return BadRequest(ModelState);
+    try
+    {
+        var created = await _keysService.AddKeyToGroupAsync(dto);
+        return Ok(created);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Conflict(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+}
 }

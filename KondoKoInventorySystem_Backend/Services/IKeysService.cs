@@ -9,4 +9,8 @@ public interface IKeysService
     Task<KeyResponseDto>       CreateAsync(KeyDto dto);
     Task<KeyResponseDto?>      UpdateAsync(string id, KeyDto dto);
     Task<bool>                 DeleteAsync(string id);
+
+Task<List<KeyGroupResponseDto>> GetAllGroupsAsync();
+Task<KeyGroupResponseDto?> GetGroupByIdAsync(string groupId);
+Task<KeyResponseDto> AddKeyToGroupAsync(AddKeyToGroupDto dto);
 }

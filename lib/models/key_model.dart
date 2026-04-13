@@ -1,3 +1,5 @@
+// lib/models/key_model.dart
+
 class KeyModel {
   final String id;
   final String barcode;
@@ -8,6 +10,11 @@ class KeyModel {
   final String keyHolder;
   final String keyCode;
   final DateTime date;
+  final String? groupId;
+
+  // Add this computed property
+  bool get isCheckedOut => false; // This should come from transaction status
+  // You'll need to fetch transaction status separately or add a field
 
   KeyModel({
     required this.id,
@@ -19,30 +26,33 @@ class KeyModel {
     required this.keyHolder,
     required this.keyCode,
     required this.date,
+    this.groupId,
   });
 
   factory KeyModel.fromJson(Map<String, dynamic> json) {
     return KeyModel(
-      id:         json['id']         as String,
-      barcode:    json['barcode']    as String? ?? '',
+      id: json['id'] as String,
+      barcode: json['barcode'] as String? ?? '',
       ownersName: json['ownersName'] as String,
-      unit:       json['unit']       as String,
-      keyType:    json['keyType']    as String,
+      unit: json['unit'] as String,
+      keyType: json['keyType'] as String,
       unitStatus: json['unitStatus'] as String,
-      keyHolder:  json['keyHolder']  as String,
-      keyCode:    json['keyCode']    as String,
-      date:       DateTime.parse(json['date'] as String),
+      keyHolder: json['keyHolder'] as String,
+      keyCode: json['keyCode'] as String,
+      date: DateTime.parse(json['date'] as String),
+      groupId: json['groupId'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'barcode':    barcode,
+    'barcode': barcode,
     'ownersName': ownersName,
-    'unit':       unit,
-    'keyType':    keyType,
+    'unit': unit,
+    'keyType': keyType,
     'unitStatus': unitStatus,
-    'keyHolder':  keyHolder,
-    'keyCode':    keyCode,
-    'date':       date.toIso8601String(),
+    'keyHolder': keyHolder,
+    'keyCode': keyCode,
+    'date': date.toIso8601String(),
+    'groupId': groupId,
   };
 }
