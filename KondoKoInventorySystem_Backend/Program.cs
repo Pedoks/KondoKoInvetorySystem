@@ -8,14 +8,14 @@ using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── ADD THIS: Configure Kestrel to listen on all interfaces ──
-builder.WebHost.ConfigureKestrel(options =>
-{
+//builder.WebHost.ConfigureKestrel(options =>
+//{
     // Listen on all network interfaces for port 5053
-    options.ListenAnyIP(5053);
+ //   options.ListenAnyIP(5053);
     
     // Also keep localhost for debugging (optional)
     // options.ListenLocalhost(5053);
-});
+///});
 
 Env.Load(); 
 
