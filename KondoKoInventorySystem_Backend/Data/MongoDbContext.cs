@@ -26,5 +26,11 @@ public class MongoDbContext
          _database.GetCollection<Key>("Keys");
 
     public IMongoCollection<KeyTransaction> KeyTransactions =>
-    _database.GetCollection<KeyTransaction>("KeyTransactions");
+        _database.GetCollection<KeyTransaction>("KeyTransactions");
+
+    public IMongoCollection<Item> Items =>
+        _database.GetCollection<Item>("Items");
+
+    public IMongoCollection<ItemTransaction> ItemTransactions =>
+        _database.GetCollection<ItemTransaction>("ItemTransactions");
 }

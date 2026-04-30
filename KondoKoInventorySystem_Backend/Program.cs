@@ -1,13 +1,14 @@
+using DotNetEnv;
 using KondoKoInventorySystem_Backend.Data;
 using KondoKoInventorySystem_Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using DotNetEnv; 
+
+// ── Load .env file for local development ──────────────
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
-
-Env.Load(); 
 
 // MongoDB
 builder.Services.Configure<MongoDbSettings>(
@@ -18,6 +19,8 @@ builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IKeysService, KeysService>();
 builder.Services.AddScoped<IKeyTransactionService, KeyTransactionService>();
+builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<IItemTransactionService, ItemTransactionService>();
 
 // JWT
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")

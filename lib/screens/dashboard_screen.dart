@@ -31,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _screens = [
       _HomeTab(firstName: widget.firstName),
       KeyDashboardScreen(token: widget.token),
-      const ItemsScreen(),
+      ItemsScreen(token: widget.token),  // ← token passed, removed const
     ];
   }
 
@@ -160,17 +160,17 @@ class _KondoAppBar extends StatelessWidget {
           ),
 
           // Settings icon
-IconButton(
-  onPressed: () => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-  ),
-  icon: const Icon(
-    Icons.settings_outlined,
-    color: Colors.white,
-    size: 26,
-  ),
-),
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
         ],
       ),
     );
