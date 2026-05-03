@@ -101,11 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Join KondoKo Inventory System',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
+
 
                 const SizedBox(height: 36),
 

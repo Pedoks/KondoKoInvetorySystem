@@ -15,7 +15,7 @@ class KeyService {
     'Authorization': 'Bearer $token',
   };
 
-  // ── GET ALL (Individual Keys) ───────────────────────────
+  // ── Get all Individual Keys ───────────────────────────
   Future<List<KeyModel>> getAllKeys() async {
     try {
       final response = await http.get(
@@ -32,7 +32,7 @@ class KeyService {
     }
   }
 
-  // ── GET ALL GROUPS (NEW) ─────────────────────────────────
+  // ── GET ALL GROUPS─────────────────────────────────
   Future<List<KeyGroupModel>> getAllGroups() async {
     try {
       final response = await http.get(
@@ -49,7 +49,7 @@ class KeyService {
     }
   }
 
-  // ── GET GROUP BY ID (NEW) ────────────────────────────────
+  // ── GET GROUP BY ID ────────────────────────────────
   Future<KeyGroupModel> getGroupById(String groupId) async {
     final response = await http.get(
       Uri.parse('$_endpoint/group/$groupId'),
@@ -61,7 +61,7 @@ class KeyService {
     throw Exception('Group not found');
   }
 
-  // ── GET BY ID (Individual Key) ─────────────────────────
+  // ── GET BY ID ─────────────────────────
   Future<KeyModel> getKeyById(String id) async {
     final response = await http.get(
       Uri.parse('$_endpoint/$id'),
@@ -73,7 +73,7 @@ class KeyService {
     throw Exception('Key not found');
   }
 
-  // ── CREATE (Individual Key) ────────────────────────────
+  // ── CREATE  ────────────────────────────
   Future<KeyModel> createKey(Map<String, dynamic> data) async {
     final response = await http.post(
       Uri.parse(_endpoint),
@@ -86,7 +86,7 @@ class KeyService {
     throw Exception('Failed to create key: ${response.body}');
   }
 
-  // ── ADD KEY TO GROUP (NEW) ───────────────────────────────
+  // ── ADD KEY TO GROUP ───────────────────────────────
   Future<KeyModel> addKeyToGroup({
     required String groupId,
     required String barcode,

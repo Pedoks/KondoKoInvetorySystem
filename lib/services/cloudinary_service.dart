@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 
 class CloudinaryService {
-  /// Uploads an image file to Cloudinary using the unsigned upload preset.
-  /// Returns the secure_url from Cloudinary response.
   Future<String> uploadImage(File imageFile) async {
     final request = http.MultipartRequest(
       'POST',

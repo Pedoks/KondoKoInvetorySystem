@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj": {}
+    "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj": {
+    "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
+        "projectUniqueName": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
         "projectName": "KondoKoInventorySystem_Backend",
-        "projectPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
+        "projectPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
         "packagesPath": "C:\\Users\\Alfred\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\obj\\",
+        "outputPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Alfred\\AppData\\Roaming\\NuGet\\NuGet.Config"

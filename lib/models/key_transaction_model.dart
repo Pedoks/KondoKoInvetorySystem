@@ -7,7 +7,7 @@ class KeyTransactionModel {
   final String    userName;
   final DateTime  checkOutDate;
   final DateTime? checkInDate;
-  final String    status; // CheckedOut | CheckedIn
+  final String    status;
 
   KeyTransactionModel({
     required this.id,

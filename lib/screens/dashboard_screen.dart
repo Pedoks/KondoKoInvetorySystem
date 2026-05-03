@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:kondokoinventorysystem/screens/item_screen.dart';
+import 'package:kondokoinventorysystem/screens/itemdashboard_screen.dart';
 import 'package:kondokoinventorysystem/screens/settings_screen.dart';
 import '../utils/constants.dart';
 import '../widgets/navbar.dart';
@@ -126,38 +126,25 @@ class _KondoAppBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // K Logo + Home text
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Center(
-                  child: Text(
-                    'k',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w300,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Home',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+// K Logo + Home text
+Row(
+  children: [
+    Image.asset(
+      'lib/assets/KondoKoLogo2.png',
+      width: 50,
+      height: 50,
+    ),
+    const SizedBox(width: 2),
+    const Text(
+      'Home',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  ],
+),
 
           // Settings icon
           IconButton(

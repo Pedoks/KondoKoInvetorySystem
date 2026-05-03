@@ -44,7 +44,6 @@ class ItemService {
   }
 
   // ── Create Item ───────────────────────────────────────
-  // Does NOT upload image — expects Cloudinary URL already in data['imageUrl']
   Future<ItemModel> createItem(Map<String, dynamic> data) async {
     final response = await http.post(
       Uri.parse(AppConstants.itemsEndpoint),

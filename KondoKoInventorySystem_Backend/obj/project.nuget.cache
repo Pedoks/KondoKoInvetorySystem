@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4bIPRcnsqsA=",
+  "dgSpecHash": "oe/KcCzC8VQ=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
+  "projectFilePath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Alfred\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\Alfred\\.nuget\\packages\\dnsclient\\1.6.1\\dnsclient.1.6.1.nupkg.sha512",
@@ -116,9 +116,9 @@
       "code": "NU1902",
       "level": "Warning",
       "message": "Package 'System.IdentityModel.Tokens.Jwt' 7.0.3 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-59j7-ghrg-fj52",
-      "projectPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
+      "projectPath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\KondoKoInventorySystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
+      "filePath": "C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\KondoKoInventorySystem_Backend\\KondoKoInventorySystem_Backend.csproj",
       "libraryId": "System.IdentityModel.Tokens.Jwt",
       "targetGraphs": [
         "net8.0"

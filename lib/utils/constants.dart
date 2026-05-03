@@ -1,9 +1,6 @@
-// ignore_for_file: constant_identifier_names
-
 class AppConstants {
   // ── API ──────────────────────────────────────────────
-  // Toggle this when building for prod
-  static const bool isProduction = false;
+  static const bool isProduction = true;
 
   static const String baseUrl = isProduction
       ? 'https://kondokoinvetorysystem-production.up.railway.app/api'

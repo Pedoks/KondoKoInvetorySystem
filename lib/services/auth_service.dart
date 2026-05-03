@@ -20,8 +20,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConstants.tokenKey);
   }
-
-  // ── Persist user info to disk ─────────────────────────
+  
   static Future<void> saveUser(UserModel user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConstants.userKey, jsonEncode(user.toJson()));

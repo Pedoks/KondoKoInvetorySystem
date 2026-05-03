@@ -53,7 +53,7 @@ class _SplashGateState extends State<SplashGate> {
     if (!mounted) return;
 
     if (token != null && user != null) {
-      // Already logged in — go straight to Dashboard
+  
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -64,7 +64,7 @@ class _SplashGateState extends State<SplashGate> {
         ),
       );
     } else {
-      // No session — show Login
+      
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -74,7 +74,7 @@ class _SplashGateState extends State<SplashGate> {
 
   @override
   Widget build(BuildContext context) {
-    // Brief loading screen while checking session
+    
     return const Scaffold(
       body: Center(
         child: CircularProgressIndicator(),

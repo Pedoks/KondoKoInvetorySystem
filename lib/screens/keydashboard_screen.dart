@@ -199,7 +199,6 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
   }
 }
 
-// ── App Bar ────────────────────────────────────────────
 class _KeysAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -212,23 +211,12 @@ class _KeysAppBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: 2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Center(
-              child: Text('k',
-                style: TextStyle(
-                  color: Colors.white, fontSize: 20,
-                  fontWeight: FontWeight.w300,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
+          Image.asset(
+            'lib/assets/KondoKoLogo2.png',
+            width: 50,
+            height: 50,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 2),
           const Text('Keys',
             style: TextStyle(
               color: Colors.white, fontSize: 22,

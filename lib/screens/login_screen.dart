@@ -195,58 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
 class _KondoKoLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Square logo icon
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: const Color(AppConstants.primaryColorValue),
-              width: 3,
-            ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              'k',
-              style: TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.w300,
-                color: const Color(AppConstants.primaryColorValue),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        // Brand name
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'KONDO ',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black87,
-                  letterSpacing: 1,
-                ),
-              ),
-              TextSpan(
-                text: 'KO.',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(AppConstants.primaryColorValue),
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return Image.asset(
+      'lib/assets/KondoKoLogo1.png',
+      width: 180,
     );
   }
 }

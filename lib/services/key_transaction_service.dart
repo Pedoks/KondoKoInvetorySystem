@@ -14,7 +14,7 @@ class KeyTransactionService {
     'Authorization': 'Bearer $token',
   };
 
-  // ── Scan barcode → get key status ─────────────────────
+  // ── Scan barcode ─────────────────────
   Future<KeyScanResultModel> scanBarcode(String barcode) async {
     final response = await http.get(
       Uri.parse('$_base/scan/$barcode'),
@@ -55,7 +55,7 @@ class KeyTransactionService {
     throw Exception(msg);
   }
 
-  // ── My Active (checked-out by me) ─────────────────────
+  // ── My Active ─────────────────────
   Future<List<KeyTransactionModel>> getMyActive() async {
     final response = await http.get(
       Uri.parse('$_base/my-active'),

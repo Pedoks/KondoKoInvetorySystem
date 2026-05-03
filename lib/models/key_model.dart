@@ -12,9 +12,9 @@ class KeyModel {
   final DateTime date;
   final String? groupId;
 
-  // Add this computed property
-  bool get isCheckedOut => false; // This should come from transaction status
-  // You'll need to fetch transaction status separately or add a field
+
+  bool get isCheckedOut => false; 
+ 
 
   KeyModel({
     required this.id,
