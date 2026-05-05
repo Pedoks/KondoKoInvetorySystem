@@ -1,6 +1,6 @@
 class AppConstants {
   // ── API ──────────────────────────────────────────────
-  static const bool isProduction = false;
+  static const bool isProduction = true;
 
   static const String baseUrl = isProduction
       ? 'https://kondokoinvetorysystem-production.up.railway.app/api'
