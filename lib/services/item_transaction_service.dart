@@ -16,7 +16,7 @@ class ItemTransactionService {
   // ── Stock In (Consumable) ─────────────────────────────
   Future<ItemTransactionModel> stockIn({
     required String barcode,
-    required int    quantity,
+    required double quantity,
     required String photoProofUrl,
   }) async {
     final response = await http.post(
@@ -39,7 +39,7 @@ class ItemTransactionService {
   // ── Stock Out (Consumable) ────────────────────────────
   Future<ItemTransactionModel> stockOut({
     required String barcode,
-    required int    quantity,
+    required double quantity,
     required String photoProofUrl,
   }) async {
     final response = await http.post(

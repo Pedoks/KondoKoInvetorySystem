@@ -18,14 +18,34 @@ public class Item
     [BsonElement("itemType")]
     public string ItemType { get; set; } = string.Empty; // "Consumable" or "NonConsumable"
 
+    // ── Unit of Measurement ───────────────────────────
+    [BsonElement("unitType")]
+    public string UnitType { get; set; } = string.Empty; // "Liquid" | "Solid" | "Count"
+
+    /// Smallest stored unit — never changes after creation
+    /// Liquid → mL | Solid → g | Count → pcs
+    [BsonElement("baseUnit")]
+    public string BaseUnit { get; set; } = "pcs";
+
+    /// The unit staff prefers to see / use when viewing or transacting
+    /// e.g. staff registered in L → preferredUnit = "L"
+    /// Display: convert from baseUnit to preferredUnit for UI
+    [BsonElement("preferredUnit")]
+    public string PreferredUnit { get; set; } = "pcs";
+
+    /// For Count type: how many base units per 1 pack/box
+    [BsonElement("conversionFactor")]
+    public double ConversionFactor { get; set; } = 1;
+
+    /// Always stored in base unit (mL / g / pcs)
     [BsonElement("quantity")]
-    public int Quantity { get; set; } = 0;
+    public double Quantity { get; set; } = 0;
 
     [BsonElement("minStock")]
-    public int MinStock { get; set; } = 0;
+    public double MinStock { get; set; } = 0;
 
     [BsonElement("maxStock")]
-    public int MaxStock { get; set; } = 0;
+    public double MaxStock { get; set; } = 0;
 
     [BsonElement("description")]
     public string Description { get; set; } = string.Empty;

@@ -1,32 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/constants.dart';
+import '../utils/screen_util.dart';
 import '../models/key_transaction_model.dart';
 import '../services/key_transaction_service.dart';
+import '../widgets/kondo_app_bar.dart';
+import '../widgets/export_bottom_sheet.dart';
+import '../utils/export_helper.dart' as helper;
 import 'barcode_scanner_screen.dart';
+
+enum _TableFilter { checkedOut, history, globalHistory }
 
 class KeysInAndOutScreen extends StatefulWidget {
   final String token;
-
   const KeysInAndOutScreen({super.key, required this.token});
 
   @override
   State<KeysInAndOutScreen> createState() => _KeysInAndOutScreenState();
 }
 
-// Dropdown filter options
-enum _TableFilter { checkedOut, history, globalHistory }
-
 class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
   late final KeyTransactionService _service;
 
-  // Top scan barcode field
   final _topBarcodeCtrl = TextEditingController();
 
-  // Table data & filter
-  _TableFilter _filter        = _TableFilter.checkedOut;
+  _TableFilter _filter    = _TableFilter.checkedOut;
   List<KeyTransactionModel> _tableData = [];
-  bool _isLoadingTable        = false;
+  bool _isLoadingTable    = false;
+  bool _isExporting       = false;
 
   @override
   void initState() {
@@ -41,7 +42,6 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     super.dispose();
   }
 
-  // ── Load table based on filter ─────────────────────────
   Future<void> _loadTable() async {
     setState(() => _isLoadingTable = true);
     try {
@@ -57,34 +57,26 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
           data = await _service.getGlobalHistory();
           break;
       }
-      setState(() {
-        _tableData      = data;
-        _isLoadingTable = false;
-      });
+      setState(() { _tableData = data; _isLoadingTable = false; });
     } catch (e) {
       setState(() => _isLoadingTable = false);
       _showError('$e');
     }
   }
 
-  // ── Top section: scan to check out or in ──────────────
   Future<void> _scanTopBarcode() async {
     final scanned = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => const BarcodeScannerScreen(
-          hintLabel: 'Scan key barcode',
-        ),
+        builder: (_) => const BarcodeScannerScreen(hintLabel: 'Scan key barcode'),
       ),
     );
     if (scanned == null || !mounted) return;
-
     setState(() => _topBarcodeCtrl.text = scanned);
 
     try {
       final result = await _service.scanBarcode(scanned);
       if (!mounted) return;
-
       if (result.isAvailable) {
         _showCheckOutConfirm(result);
       } else {
@@ -95,16 +87,17 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     }
   }
 
-  // ── Check-Out confirm dialog ───────────────────────────
+  // ── Rich Check-Out confirmation ────────────────────────
   void _showCheckOutConfirm(KeyScanResultModel result) {
     showDialog(
       context: context,
-      builder: (_) => _ConfirmDialog(
-        title:   'Check Out Key',
-        message: 'Are you sure you want to check out key for\n'
-                 '"${result.unit}" (${result.keyType})?',
-        confirmLabel: 'Check Out',
-        confirmColor: const Color(AppConstants.primaryColorValue),
+      builder: (_) => _RichKeyConfirmDialog(
+        isCheckOut:  true,
+        unit:        result.unit,
+        keyType:     result.keyType,
+        barcode:     result.barcode,
+        checkedOutBy: null,
+        checkOutDate: null,
         onConfirm: () async {
           Navigator.pop(context);
           await _doCheckOut(result.barcode);
@@ -113,17 +106,22 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     );
   }
 
-  // ── Check-In confirm dialog ────────────────────────────
+  // ── Rich Check-In confirmation ─────────────────────────
   void _showCheckInConfirm(KeyScanResultModel result) {
+    // Find the transaction to get checkOutDate
+    final existingTx = _tableData.where(
+      (t) => t.barcode == result.barcode && t.isCheckedOut,
+    ).firstOrNull;
+
     showDialog(
       context: context,
-      builder: (_) => _ConfirmDialog(
-        title:   'Check In Key',
-        message: 'Key "${result.unit}" is currently checked out'
-                 '${result.checkedOutBy != null ? " by ${result.checkedOutBy}" : ""}.\n\n'
-                 'Are you sure you want to check it in?',
-        confirmLabel: 'Check In',
-        confirmColor: const Color(AppConstants.successColorValue),
+      builder: (_) => _RichKeyConfirmDialog(
+        isCheckOut:   false,
+        unit:         result.unit,
+        keyType:      result.keyType,
+        barcode:      result.barcode,
+        checkedOutBy: result.checkedOutBy,
+        checkOutDate: existingTx?.checkOutDate,
         onConfirm: () async {
           Navigator.pop(context);
           await _doCheckIn(result.barcode);
@@ -154,26 +152,18 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     }
   }
 
-  // ── Row Check-In button → direct scan for security ──────────────────
   void _showRowCheckInScan(KeyTransactionModel tx) async {
-    // Force re-scan for security
     final scanned = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => const BarcodeScannerScreen(
-          hintLabel: 'Scan key barcode to check in',
-        ),
+        builder: (_) => const BarcodeScannerScreen(hintLabel: 'Scan key barcode to check in'),
       ),
     );
-    
     if (scanned == null || !mounted) return;
-    
-    // Verify the scanned barcode matches the transaction
     if (scanned != tx.barcode) {
       _showError('Barcode mismatch! Please scan the correct key.');
       return;
     }
-    
     try {
       await _service.checkIn(scanned);
       _showSuccess('Key checked in successfully!');
@@ -183,13 +173,64 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     }
   }
 
+  Future<void> _handleExport() async {
+    if (_filter != _TableFilter.globalHistory) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Switch to Global History to export transactions.')),
+      );
+      return;
+    }
+    if (_tableData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to export.')),
+      );
+      return;
+    }
+
+    // Show sheet — returns null if dismissed
+    final result = await ExportBottomSheet.show(context);
+    if (result == null || !mounted) return;
+
+    // Apply date filter to transactions based on selected range
+    final cutoff = result.range.cutoff;
+    final filtered = cutoff == null
+        ? _tableData
+        : _tableData.where((t) => t.checkOutDate.isAfter(cutoff)).toList();
+
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No transactions found for ${result.range.label}.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isExporting = true);
+    try {
+      if (result.isExcel) {
+        await helper.ExportHelper.exportTransactionsToExcel(context, filtered);
+      } else {
+        await helper.ExportHelper.exportTransactionsToPdf(context, filtered);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.red.shade600,
-      ),
+      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade600),
     );
   }
 
@@ -203,7 +244,6 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
     );
   }
 
-  // ── Filter label ───────────────────────────────────────
   String get _filterLabel {
     switch (_filter) {
       case _TableFilter.checkedOut:    return 'Checked-Out';
@@ -214,52 +254,51 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final top  = MediaQuery.of(context).padding.top;
+    SU.init(context);
 
     return Scaffold(
       backgroundColor: const Color(AppConstants.backgroundColorValue),
       body: Column(
         children: [
-          // ── Orange App Bar ──────────────────────────
-          Container(
-            color: const Color(AppConstants.primaryColorValue),
-            padding: EdgeInsets.only(
-                top: top + 12, bottom: 16, left: 4, right: 16),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios,
-                      color: Colors.white, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Text(
-                  'Keys In & Out',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+          KondoAppBar(
+            title:    'Keys In & Out',
+            showBack: true,
+            showLogo: false,
+            showSettings: false,
+            actions: [
+              if (_isExporting)
+                const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   ),
+                )
+              else
+                IconButton(
+                  onPressed: _handleExport,
+                  icon: Icon(
+                    Icons.upload_file,
+                    color: _filter == _TableFilter.globalHistory
+                        ? Colors.white
+                        : Colors.white54,
+                    size: 22,
+                  ),
+                  tooltip: 'Export Global History',
                 ),
-              ],
-            ),
+            ],
           ),
 
-          // ── Body ────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(size.width * 0.04),
+              padding: EdgeInsets.all(SU.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: size.height * 0.015),
+                  SizedBox(height: SU.hp(0.015)),
 
-                  // ── Check-Out/In Section ─────────────
-                  _SectionHeader(
-                    icon:  Icons.compare_arrows,
-                    label: 'Check- Out/In  Key',
-                  ),
-
+                  // ── Scan section ─────────────────────
+                  _SectionHeader(icon: Icons.compare_arrows, label: 'Check-Out / In Key'),
                   const SizedBox(height: 12),
 
                   Container(
@@ -273,7 +312,7 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
                         Expanded(
                           child: TextField(
                             controller: _topBarcodeCtrl,
-                            readOnly:   true,
+                            readOnly: true,
                             decoration: _scanFieldDeco('Scan Barcode'),
                           ),
                         ),
@@ -283,35 +322,27 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
                     ),
                   ),
 
-                  SizedBox(height: size.height * 0.025),
+                  SizedBox(height: SU.hp(0.025)),
 
-                  // ── Checked-Out Keys Section ──────────
+                  // ── Table section ─────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _SectionHeader(
-                        icon:  Icons.key,
-                        label: 'Checked-Out Keys',
-                      ),
-                      // Filter dropdown pill
+                      _SectionHeader(icon: Icons.key, label: 'Checked-Out Keys'),
                       _FilterPill(
                         label:    _filterLabel,
-                        onSelect: (filter) {
-                          setState(() => _filter = filter);
-                          _loadTable();
-                        },
+                        onSelect: (f) { setState(() => _filter = f); _loadTable(); },
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 12),
 
-                  // ── Table ────────────────────────────
                   _isLoadingTable
-                      ? const Center(
+                      ? Center(
                           child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(
+                            padding: EdgeInsets.all(SU.xl),
+                            child: const CircularProgressIndicator(
                               color: Color(AppConstants.primaryColorValue),
                             ),
                           ),
@@ -319,8 +350,8 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
                       : _tableData.isEmpty
                           ? _EmptyState(filter: _filter)
                           : _TransactionTable(
-                              data:     _tableData,
-                              filter:   _filter,
+                              data:      _tableData,
+                              filter:    _filter,
                               onCheckIn: _showRowCheckInScan,
                             ),
                 ],
@@ -333,15 +364,284 @@ class _KeysInAndOutScreenState extends State<KeysInAndOutScreen> {
   }
 }
 
+// ═══════════════════════════════════════════════════════
+//  RICH CONFIRM DIALOG
+// ═══════════════════════════════════════════════════════
+class _RichKeyConfirmDialog extends StatelessWidget {
+  final bool isCheckOut;
+  final String unit;
+  final String keyType;
+  final String barcode;
+  final String? checkedOutBy;
+  final DateTime? checkOutDate;
+  final VoidCallback onConfirm;
+
+  static final _dateFormat = DateFormat('MMM dd, yyyy hh:mm a');
+
+  const _RichKeyConfirmDialog({
+    required this.isCheckOut,
+    required this.unit,
+    required this.keyType,
+    required this.barcode,
+    this.checkedOutBy,
+    this.checkOutDate,
+    required this.onConfirm,
+  });
+
+  String? get _durationText {
+    if (checkOutDate == null) return null;
+    final diff = DateTime.now().difference(checkOutDate!);
+    if (diff.inDays > 0) return '${diff.inDays}d ${diff.inHours.remainder(24)}h checked out';
+    if (diff.inHours > 0) return '${diff.inHours}h ${diff.inMinutes.remainder(60)}m checked out';
+    return '${diff.inMinutes}m checked out';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final actionColor = isCheckOut
+        ? const Color(AppConstants.primaryColorValue)
+        : const Color(AppConstants.successColorValue);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2EADF),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Colored header ──────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: actionColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isCheckOut ? Icons.logout : Icons.login,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    isCheckOut ? 'Check Out Key' : 'Check In Key',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isCheckOut
+                        ? 'Key is currently available'
+                        : 'Key is currently checked out',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Info grid ───────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _InfoRow(label: 'Unit', value: unit, icon: Icons.apartment),
+                  const _InfoDivider(),
+                  _InfoRow(label: 'Key Type', value: keyType, icon: Icons.vpn_key_outlined),
+                  const _InfoDivider(),
+                  _InfoRow(
+                    label: 'Barcode',
+                    value: barcode,
+                    icon: Icons.qr_code,
+                    isCode: true,
+                  ),
+
+                  // Check-In extras: who has it + duration
+                  if (!isCheckOut) ...[
+                    if (checkedOutBy != null) ...[
+                      const _InfoDivider(),
+                      _InfoRow(
+                        label: 'Checked Out By',
+                        value: checkedOutBy!,
+                        icon: Icons.person_outline,
+                      ),
+                    ],
+                    if (checkOutDate != null) ...[
+                      const _InfoDivider(),
+                      _InfoRow(
+                        label: 'Checked Out At',
+                        value: _dateFormat.format(checkOutDate!.toLocal()),
+                        icon: Icons.schedule,
+                      ),
+                    ],
+                    if (_durationText != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(AppConstants.primaryColorValue).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.access_time, size: 14,
+                                color: Color(AppConstants.primaryColorValue)),
+                            const SizedBox(width: 6),
+                            Text(
+                              _durationText!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(AppConstants.primaryColorValue),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Actions ─────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: const StadiumBorder(),
+                        backgroundColor: Colors.black.withOpacity(0.06),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onConfirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: actionColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: const StadiumBorder(),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        isCheckOut ? 'Check Out' : 'Check In',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool isCode;
+
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.isCode = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(AppConstants.primaryColorValue)),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.black45, fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              fontFamily: isCode ? 'monospace' : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoDivider extends StatelessWidget {
+  const _InfoDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Divider(height: 1, color: Colors.black12);
+}
+
 // ── Section Header ─────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
-  final String   label;
-
+  final String label;
   const _SectionHeader({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Row(
       children: [
         Container(
@@ -356,8 +656,8 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
+          style: TextStyle(
+            fontSize: SU.textLg,
             fontWeight: FontWeight.w700,
             color: Colors.black87,
           ),
@@ -367,10 +667,10 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Filter Pill Dropdown ───────────────────────────────
+// ── Filter Pill ────────────────────────────────────────
 class _FilterPill extends StatelessWidget {
-  final String                        label;
-  final void Function(_TableFilter)   onSelect;
+  final String label;
+  final void Function(_TableFilter) onSelect;
 
   const _FilterPill({required this.label, required this.onSelect});
 
@@ -378,12 +678,10 @@ class _FilterPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<_TableFilter>(
       onSelected: onSelect,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: const Color(AppConstants.backgroundColorValue),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(AppConstants.lightOrangeValue),
           borderRadius: BorderRadius.circular(20),
@@ -391,44 +689,35 @@ class _FilterPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
             const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down_rounded,
-                size: 18, color: Colors.black87),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.black87),
           ],
         ),
       ),
       itemBuilder: (_) => [
-        _pillItem('Checked-Out',   _TableFilter.checkedOut),
-        _pillItem('History',       _TableFilter.history),
-        _pillItem('Global History',_TableFilter.globalHistory),
+        _pill('Checked-Out',   _TableFilter.checkedOut),
+        _pill('History',       _TableFilter.history),
+        _pill('Global History',_TableFilter.globalHistory),
       ],
     );
   }
 
-  PopupMenuItem<_TableFilter> _pillItem(
-      String label, _TableFilter value) {
+  PopupMenuItem<_TableFilter> _pill(String label, _TableFilter value) {
     return PopupMenuItem(
       value: value,
-      child: Text(label,
-          style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w500)),
+      child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
     );
   }
 }
 
 // ── Transaction Table ──────────────────────────────────
 class _TransactionTable extends StatelessWidget {
-  final List<KeyTransactionModel>            data;
-  final _TableFilter                         filter;
-  final void Function(KeyTransactionModel)   onCheckIn;
+  final List<KeyTransactionModel> data;
+  final _TableFilter filter;
+  final void Function(KeyTransactionModel) onCheckIn;
 
   const _TransactionTable({
     required this.data,
@@ -436,8 +725,7 @@ class _TransactionTable extends StatelessWidget {
     required this.onCheckIn,
   });
 
-  bool get _showCheckIn => filter == _TableFilter.checkedOut;
-  bool get _showGlobal  => filter == _TableFilter.globalHistory;
+  bool get _showGlobal => filter == _TableFilter.globalHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -448,10 +736,8 @@ class _TransactionTable extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Header
           Padding(
-            padding: const EdgeInsets.symmetric(
-                vertical: 12, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             child: Row(
               children: [
                 Expanded(
@@ -459,8 +745,7 @@ class _TransactionTable extends StatelessWidget {
                   child: Text(
                     _showGlobal ? 'User' : 'Unit Name',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
                 Expanded(
@@ -468,8 +753,7 @@ class _TransactionTable extends StatelessWidget {
                   child: Text(
                     _showGlobal ? 'Unit' : 'Check-Out',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
                 Expanded(
@@ -481,23 +765,20 @@ class _TransactionTable extends StatelessWidget {
                             ? 'Transaction Period'
                             : 'Action',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Rows
           ...data.asMap().entries.map((entry) {
             final isLast = entry.key == data.length - 1;
             final tx     = entry.value;
             return _TransactionRow(
-              tx:          tx,
-              isLast:      isLast,
-              filter:      filter,
-              onCheckIn:   () => onCheckIn(tx),
+              tx:       tx,
+              isLast:   isLast,
+              filter:   filter,
+              onCheckIn: () => onCheckIn(tx),
             );
           }),
         ],
@@ -508,10 +789,10 @@ class _TransactionTable extends StatelessWidget {
 
 // ── Transaction Row ────────────────────────────────────
 class _TransactionRow extends StatelessWidget {
-  final KeyTransactionModel            tx;
-  final bool                           isLast;
-  final _TableFilter                   filter;
-  final VoidCallback                   onCheckIn;
+  final KeyTransactionModel tx;
+  final bool isLast;
+  final _TableFilter filter;
+  final VoidCallback onCheckIn;
 
   const _TransactionRow({
     required this.tx,
@@ -520,8 +801,16 @@ class _TransactionRow extends StatelessWidget {
     required this.onCheckIn,
   });
 
-  String _formatDate(DateTime date) {
-    return DateFormat('MM/dd/yy hh:mm a').format(date.toLocal());
+  static final _dateFormat = DateFormat('MM/dd/yy hh:mm a');
+
+  String _fmt(DateTime date) => _dateFormat.format(date.toLocal());
+
+  String _dur(DateTime start, DateTime end) {
+    final diff = end.difference(start);
+    if (diff.inDays > 0) return '${diff.inDays}d ${diff.inHours.remainder(24)}h';
+    if (diff.inHours > 0) return '${diff.inHours}h ${diff.inMinutes.remainder(60)}m';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
+    return '${diff.inSeconds}s';
   }
 
   @override
@@ -532,84 +821,71 @@ class _TransactionRow extends StatelessWidget {
     switch (filter) {
       case _TableFilter.checkedOut:
         col1 = tx.unit;
-        col2 = _formatDate(tx.checkOutDate);
+        col2 = _fmt(tx.checkOutDate);
         col3 = GestureDetector(
           onTap: onCheckIn,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(AppConstants.successColorValue),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              'Check-In',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
+            child: const Text('Check-In',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
           ),
         );
         break;
-        
+
       case _TableFilter.history:
         col1 = tx.unit;
-        col2 = _formatDate(tx.checkOutDate);
-        if (tx.checkInDate != null) {
-          col3 = Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        col2 = _fmt(tx.checkOutDate);
+        col3 = tx.checkInDate != null
+            ? Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.login, size: 12, color: const Color(AppConstants.successColorValue)),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatDate(tx.checkInDate!),
-                    style: const TextStyle(fontSize: 11),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.login, size: 12,
+                          color: const Color(AppConstants.successColorValue)),
+                      const SizedBox(width: 4),
+                      Text(_fmt(tx.checkInDate!), style: const TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(AppConstants.successColorValue).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _dur(tx.checkOutDate, tx.checkInDate!),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: Color(AppConstants.successColorValue),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              )
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(AppConstants.successColorValue).withOpacity(0.15),
+                  color: const Color(AppConstants.primaryColorValue).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  _calculateDuration(tx.checkOutDate, tx.checkInDate!),
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(AppConstants.successColorValue),
-                  ),
-                ),
-              ),
-            ],
-          );
-        } else {
-          col3 = Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(AppConstants.primaryColorValue).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'PENDING',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-            ),
-          );
-        }
+                child: const Text('PENDING',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+              );
         break;
-        
+
       case _TableFilter.globalHistory:
         col1 = tx.userName;
         col2 = tx.unit;
-        // Timeline style showing both dates
         col3 = Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,17 +895,15 @@ class _TransactionRow extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: const Color(AppConstants.primaryColorValue),
+                  decoration: const BoxDecoration(
+                    color: Color(AppConstants.primaryColorValue),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.logout, size: 10, color: Colors.white),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  _formatDate(tx.checkOutDate),
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                ),
+                Text(_fmt(tx.checkOutDate),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
               ],
             ),
             if (tx.checkInDate != null) ...[
@@ -639,17 +913,15 @@ class _TransactionRow extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: const Color(AppConstants.successColorValue),
+                    decoration: const BoxDecoration(
+                      color: Color(AppConstants.successColorValue),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.login, size: 10, color: Colors.white),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    _formatDate(tx.checkInDate!),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                  ),
+                  Text(_fmt(tx.checkInDate!),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -660,11 +932,11 @@ class _TransactionRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _calculateDuration(tx.checkOutDate, tx.checkInDate!),
-                  style: TextStyle(
+                  _dur(tx.checkOutDate, tx.checkInDate!),
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
-                    color: const Color(AppConstants.successColorValue),
+                    color: Color(AppConstants.successColorValue),
                   ),
                 ),
               ),
@@ -681,10 +953,8 @@ class _TransactionRow extends StatelessWidget {
                   children: [
                     Icon(Icons.access_time, size: 10),
                     SizedBox(width: 4),
-                    Text(
-                      'CURRENTLY OUT',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
-                    ),
+                    Text('CURRENTLY OUT',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -698,49 +968,23 @@ class _TransactionRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: isLast
-            ? const BorderRadius.vertical(
-                bottom: Radius.circular(16))
+            ? const BorderRadius.vertical(bottom: Radius.circular(16))
             : BorderRadius.zero,
-        border: const Border(
-          top: BorderSide(color: Color(0xFFE8D5C0), width: 0.5),
-        ),
+        border: const Border(top: BorderSide(color: Color(0xFFE8D5C0), width: 0.5)),
       ),
-      padding: const EdgeInsets.symmetric(
-          vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(col1,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13)),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(col2,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Center(child: col3),
-          ),
+          Expanded(flex: 2,
+              child: Text(col1,
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+          Expanded(flex: 2,
+              child: Text(col2,
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+          Expanded(flex: 3, child: Center(child: col3)),
         ],
       ),
     );
-  }
-
-  String _calculateDuration(DateTime start, DateTime end) {
-    final difference = end.difference(start);
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ${difference.inHours.remainder(24)}h';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ${difference.inMinutes.remainder(60)}m';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return '${difference.inSeconds}s';
-    }
   }
 }
 
@@ -758,70 +1002,10 @@ class _EmptyState extends StatelessWidget {
     };
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(
-          msgs[filter] ?? 'No data.',
-          style: const TextStyle(color: Colors.grey, fontSize: 14),
-        ),
+        padding: EdgeInsets.all(SU.xl),
+        child: Text(msgs[filter] ?? 'No data.',
+            style: const TextStyle(color: Colors.grey, fontSize: 14)),
       ),
-    );
-  }
-}
-
-// ── Confirm Dialog ─────────────────────────────────────
-class _ConfirmDialog extends StatelessWidget {
-  final String       title;
-  final String       message;
-  final String       confirmLabel;
-  final Color        confirmColor;
-  final VoidCallback onConfirm;
-
-  const _ConfirmDialog({
-    required this.title,
-    required this.message,
-    required this.confirmLabel,
-    required this.confirmColor,
-    required this.onConfirm,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20)),
-      backgroundColor:
-          const Color(AppConstants.backgroundColorValue),
-      title: Text(
-        title,
-        style: const TextStyle(
-            fontWeight: FontWeight.w700, fontSize: 16),
-      ),
-      content: Text(
-        message,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel',
-              style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: onConfirm,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: confirmColor,
-            shape: const StadiumBorder(),
-            elevation: 0,
-          ),
-          child: Text(
-            confirmLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -836,21 +1020,13 @@ class _GreenScanBtn extends StatelessWidget {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            const Color(AppConstants.successColorValue),
+        backgroundColor: const Color(AppConstants.successColorValue),
         shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 22, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
         elevation: 0,
       ),
-      child: const Text(
-        'Scan',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
+      child: const Text('Scan',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
     );
   }
 }
@@ -860,8 +1036,7 @@ InputDecoration _scanFieldDeco(String hint) => InputDecoration(
   hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
   filled:    true,
   fillColor: const Color(AppConstants.backgroundColorValue),
-  contentPadding: const EdgeInsets.symmetric(
-      vertical: 14, horizontal: 16),
+  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
   border: OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
     borderSide: const BorderSide(color: Colors.black26),
@@ -873,8 +1048,6 @@ InputDecoration _scanFieldDeco(String hint) => InputDecoration(
   focusedBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
     borderSide: const BorderSide(
-      color: Color(AppConstants.primaryColorValue),
-      width: 1.5,
-    ),
+        color: Color(AppConstants.primaryColorValue), width: 1.5),
   ),
 );

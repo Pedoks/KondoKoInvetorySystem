@@ -16,6 +16,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   image_picker: ^1.0.0
+  pdf: ^3.11.1
+  excel: ^4.0.6
+  path_provider: ^2.1.2
+  share_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:

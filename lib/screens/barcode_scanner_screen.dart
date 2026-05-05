@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../utils/constants.dart';
+import '../utils/screen_util.dart';
 
 class BarcodeScannerScreen extends StatefulWidget {
   final String hintLabel;
@@ -37,19 +38,15 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
     autoStart: true,
   );
 
-  bool _hasScanned    = false;
-  bool _torchOn       = false;
+  bool    _hasScanned     = false;
+  bool    _torchOn        = false;
   String? _previewValue;
 
-  // "Move closer" hint
-  Timer?  _moveCloserTimer;
-  bool    _showMoveCloser = false;
+  Timer? _moveCloserTimer;
+  bool   _showMoveCloser  = false;
 
-  // Pulse animation on scan frame
   late final AnimationController _pulseCtrl;
   late final Animation<double>   _pulseAnim;
-
-  // Scan-line sweep animation
   late final AnimationController _sweepCtrl;
   late final Animation<double>   _sweepAnim;
 
@@ -57,7 +54,6 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
   void initState() {
     super.initState();
 
-    // Pulse border glow
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -66,7 +62,6 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    // Sweep line
     _sweepCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
@@ -75,7 +70,6 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
       CurvedAnimation(parent: _sweepCtrl, curve: Curves.linear),
     );
 
-    // Start "move closer" timer — show hint if nothing detected in 2.5s
     _startMoveCloserTimer();
   }
 
@@ -99,18 +93,12 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
 
   void _onDetect(BarcodeCapture capture) {
     if (_hasScanned) return;
-
-    final barcode = capture.barcodes.firstOrNull;
-    final raw     = barcode?.rawValue;
-
+    final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw != null && raw.isNotEmpty) {
-      // Show preview value briefly
       setState(() {
         _previewValue   = raw;
         _showMoveCloser = false;
       });
-
-      // Small delay so user sees the preview, then pop
       Future.delayed(const Duration(milliseconds: 350), () {
         if (!_hasScanned && mounted) {
           _hasScanned = true;
@@ -127,19 +115,23 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: const Color(AppConstants.primaryColorValue),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios,
+              color: Colors.white, size: SU.iconSm),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Scan Barcode',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
+            fontSize: SU.textLg,
           ),
         ),
         actions: [
@@ -147,6 +139,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
             icon: Icon(
               _torchOn ? Icons.flash_on : Icons.flash_off,
               color: _torchOn ? Colors.yellowAccent : Colors.white,
+              size: SU.iconMd,
             ),
             onPressed: _toggleTorch,
             tooltip: _torchOn ? 'Torch On' : 'Torch Off',
@@ -155,20 +148,20 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
       ),
       body: Stack(
         children: [
-          // ── Camera ──────────────────────────────────
+          // ── Camera ────────────────────────────────
           MobileScanner(
             controller: _controller,
             onDetect:   _onDetect,
           ),
 
-          // ── Dark vignette overlay ────────────────────
+          // ── Dark vignette overlay ─────────────────
           _ScanOverlay(),
 
-          // ── Animated scan frame ──────────────────────
+          // ── Animated scan frame ───────────────────
           Center(
             child: SizedBox(
-              width:  270,
-              height: 170,
+              width:  SU.wp(0.68),
+              height: SU.hp(0.22),
               child: AnimatedBuilder(
                 animation: _pulseAnim,
                 builder: (_, __) => Stack(
@@ -207,8 +200,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
                       AnimatedBuilder(
                         animation: _sweepAnim,
                         builder: (_, __) => Positioned(
-                          top: _sweepAnim.value * 150,
-                          left: 8,
+                          top:   _sweepAnim.value * (SU.hp(0.22) - 20),
+                          left:  8,
                           right: 8,
                           child: Container(
                             height: 2,
@@ -216,8 +209,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
                               gradient: LinearGradient(
                                 colors: [
                                   Colors.transparent,
-                                  const Color(AppConstants
-                                          .primaryColorValue)
+                                  const Color(AppConstants.primaryColorValue)
                                       .withOpacity(0.8),
                                   Colors.transparent,
                                 ],
@@ -233,12 +225,9 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
                         child: Icon(
                           Icons.check_circle_rounded,
                           color: Colors.greenAccent,
-                          size: 48,
+                          size: SU.xl * 1.2,
                           shadows: const [
-                            Shadow(
-                              color: Colors.black54,
-                              blurRadius: 8,
-                            ),
+                            Shadow(color: Colors.black54, blurRadius: 8),
                           ],
                         ),
                       ),
@@ -248,72 +237,71 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
             ),
           ),
 
-          // ── Preview value chip ───────────────────────
+          // ── Preview value chip ─────────────────────
           if (_previewValue != null)
             Positioned(
-              top: MediaQuery.of(context).size.height * 0.5 + 90,
-              left: 24,
-              right: 24,
+              top:   SU.h * 0.5 + SU.hp(0.12),
+              left:  SU.md,
+              right: SU.md,
               child: Center(
                 child: AnimatedOpacity(
-                  opacity: 1.0,
+                  opacity:  1.0,
                   duration: const Duration(milliseconds: 200),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 10),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: SU.lg, vertical: SU.sm),
                     decoration: BoxDecoration(
                       color: Colors.greenAccent.shade700,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Text(
                       _previewValue!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+                      style: TextStyle(
+                        color:       Colors.white,
+                        fontWeight:  FontWeight.w700,
+                        fontSize:    SU.textMd,
                         letterSpacing: 1.2,
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines:  1,
+                      overflow:  TextOverflow.ellipsis,
                     ),
                   ),
                 ),
               ),
             ),
 
-          // ── Bottom hint / move-closer ────────────────
+          // ── Bottom hint ────────────────────────────
           Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
+            bottom: SU.hp(0.08),
+            left:   0,
+            right:  0,
             child: Column(
               children: [
                 // "Move closer" hint
                 AnimatedOpacity(
-                  opacity: _showMoveCloser && _previewValue == null
-                      ? 1.0
-                      : 0.0,
+                  opacity:  _showMoveCloser && _previewValue == null
+                      ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 400),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 8),
+                    margin: EdgeInsets.only(bottom: SU.sm),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: SU.lg, vertical: SU.xs),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade700.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.zoom_in,
-                            color: Colors.white, size: 16),
-                        SizedBox(width: 6),
+                            color: Colors.white, size: SU.iconSm),
+                        SizedBox(width: SU.xs),
                         Text(
                           'Move closer to the barcode',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
+                            color:      Colors.white,
+                            fontSize:   SU.textSm,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -324,8 +312,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
 
                 // Default hint
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 10),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: SU.lg, vertical: SU.sm),
                   decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(20),
@@ -334,10 +322,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
                     _previewValue != null
                         ? 'Barcode detected!'
                         : widget.hintLabel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(
+                        color: Colors.white, fontSize: SU.textMd),
                   ),
                 ),
               ],
@@ -348,7 +334,6 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
     );
   }
 
-  // Corner bracket decorations
   List<Widget> _buildCorners() {
     const double size  = 22;
     const double thick = 3.5;
@@ -356,65 +341,36 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
     const radius       = Radius.circular(4);
 
     return [
-      // Top-left
-      Positioned(
-        top: 0, left: 0,
-        child: SizedBox(
-          width: size, height: size,
-          child: CustomPaint(
-            painter: _CornerPainter(
-                top: true, left: true,
-                color: color, thick: thick, radius: radius),
-          ),
-        ),
-      ),
-      // Top-right
-      Positioned(
-        top: 0, right: 0,
-        child: SizedBox(
-          width: size, height: size,
-          child: CustomPaint(
-            painter: _CornerPainter(
-                top: true, left: false,
-                color: color, thick: thick, radius: radius),
-          ),
-        ),
-      ),
-      // Bottom-left
-      Positioned(
-        bottom: 0, left: 0,
-        child: SizedBox(
-          width: size, height: size,
-          child: CustomPaint(
-            painter: _CornerPainter(
-                top: false, left: true,
-                color: color, thick: thick, radius: radius),
-          ),
-        ),
-      ),
-      // Bottom-right
-      Positioned(
-        bottom: 0, right: 0,
-        child: SizedBox(
-          width: size, height: size,
-          child: CustomPaint(
-            painter: _CornerPainter(
-                top: false, left: false,
-                color: color, thick: thick, radius: radius),
-          ),
-        ),
-      ),
+      Positioned(top: 0, left: 0,
+        child: SizedBox(width: size, height: size,
+          child: CustomPaint(painter: _CornerPainter(
+              top: true, left: true,
+              color: color, thick: thick, radius: radius)))),
+      Positioned(top: 0, right: 0,
+        child: SizedBox(width: size, height: size,
+          child: CustomPaint(painter: _CornerPainter(
+              top: true, left: false,
+              color: color, thick: thick, radius: radius)))),
+      Positioned(bottom: 0, left: 0,
+        child: SizedBox(width: size, height: size,
+          child: CustomPaint(painter: _CornerPainter(
+              top: false, left: true,
+              color: color, thick: thick, radius: radius)))),
+      Positioned(bottom: 0, right: 0,
+        child: SizedBox(width: size, height: size,
+          child: CustomPaint(painter: _CornerPainter(
+              top: false, left: false,
+              color: color, thick: thick, radius: radius)))),
     ];
   }
 }
 
-// ── Dark overlay with a clear window ──────────────────
+// ── Dark overlay with clear window ────────────────────
 class _ScanOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return CustomPaint(
-      size: size,
+      size: MediaQuery.of(context).size,
       painter: _OverlayPainter(),
     );
   }
@@ -423,8 +379,8 @@ class _ScanOverlay extends StatelessWidget {
 class _OverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    const windowW = 270.0;
-    const windowH = 170.0;
+    final windowW = size.width  * 0.68;
+    final windowH = size.height * 0.22;
     final cx = size.width  / 2;
     final cy = size.height / 2;
 
@@ -436,9 +392,11 @@ class _OverlayPainter extends CustomPainter {
       const Radius.circular(14),
     );
 
-    final fullPath   = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final fullPath   = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
     final windowPath = Path()..addRRect(windowRect);
-    final clipped    = Path.combine(PathOperation.difference, fullPath, windowPath);
+    final clipped    =
+        Path.combine(PathOperation.difference, fullPath, windowPath);
 
     canvas.drawPath(clipped, paint);
   }
@@ -471,8 +429,8 @@ class _CornerPainter extends CustomPainter {
       ..style       = PaintingStyle.stroke
       ..strokeCap   = StrokeCap.round;
 
-    final double x = left ? 0 : size.width;
-    final double y = top  ? 0 : size.height;
+    final double x  = left ? 0 : size.width;
+    final double y  = top  ? 0 : size.height;
     final double dx = left ?  size.width  : -size.width;
     final double dy = top  ?  size.height : -size.height;
 

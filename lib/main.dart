@@ -31,7 +31,7 @@ class KondoKoApp extends StatelessWidget {
   }
 }
 
-/// Checks for a saved session and routes to Dashboard or Login accordingly.
+
 class SplashGate extends StatefulWidget {
   const SplashGate({super.key});
 

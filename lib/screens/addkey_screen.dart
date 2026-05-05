@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/constants.dart';
+import '../utils/screen_util.dart';
 import '../services/key_service.dart';
+import '../widgets/kondo_app_bar.dart';
 import 'barcode_scanner_screen.dart';
 
 class AddKeyScreen extends StatefulWidget {
   final String token;
-
   const AddKeyScreen({super.key, required this.token});
 
   @override
@@ -14,15 +15,15 @@ class AddKeyScreen extends StatefulWidget {
 }
 
 class _AddKeyScreenState extends State<AddKeyScreen> {
-  final _mainFormKey    = GlobalKey<FormState>();
-  final _barcodeCtrl    = TextEditingController();
-  final _ownerCtrl      = TextEditingController();
-  final _unitCtrl       = TextEditingController();
-  final _keyHolderCtrl  = TextEditingController();
+  final _mainFormKey   = GlobalKey<FormState>();
+  final _barcodeCtrl   = TextEditingController();
+  final _ownerCtrl     = TextEditingController();
+  final _unitCtrl      = TextEditingController();
+  final _keyHolderCtrl = TextEditingController();
 
   String?  _keyType;
   String?  _unitStatus;
-  String?  _keyCode;         // ← was _tagCtrl free-text, now dropdown
+  String?  _keyCode;
   DateTime _selectedDate = DateTime.now();
 
   final List<_ExtraKeyData> _extraKeys = [];
@@ -32,9 +33,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     'Key Bundle', 'Main Door', 'Mail Box',
     'Bedroom 1',  'Bedroom 2', 'Comfort Room',
   ];
-  static const List<String> _unitStatusOptions = [
-    'Rented', 'Terminated',
-  ];
+  static const List<String> _unitStatusOptions = ['Rented', 'Terminated'];
   static const List<String> _keyCodeOptions = [
     'Code 0', 'Code 1', 'Code 2', 'Code 3', 'Code 4',
   ];
@@ -49,21 +48,15 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     super.dispose();
   }
 
-  void _addExtraKey() =>
-      setState(() => _extraKeys.add(_ExtraKeyData()));
+  void _addExtraKey() => setState(() => _extraKeys.add(_ExtraKeyData()));
+  void _removeExtraKey(int index) => setState(() => _extraKeys.removeAt(index));
 
-  void _removeExtraKey(int index) =>
-      setState(() => _extraKeys.removeAt(index));
-
-  /// Scan into any barcode controller — works for both initial scan and rescan
   Future<void> _scanBarcode(TextEditingController ctrl) async {
     final result = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
-    if (result != null && mounted) {
-      setState(() => ctrl.text = result);
-    }
+    if (result != null && mounted) setState(() => ctrl.text = result);
   }
 
   Future<void> _pickDate() async {
@@ -94,7 +87,6 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     try {
       final service = KeyService(token: widget.token);
 
-      // Main key
       await service.createKey({
         'barcode':    _barcodeCtrl.text.trim(),
         'ownersName': _ownerCtrl.text.trim(),
@@ -102,11 +94,10 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
         'keyType':    _keyType    ?? '',
         'unitStatus': _unitStatus ?? '',
         'keyHolder':  _keyHolderCtrl.text.trim(),
-        'keyCode':    _keyCode    ?? '',          // ← dropdown value
+        'keyCode':    _keyCode    ?? '',
         'date':       _selectedDate.toIso8601String(),
       });
 
-      // Extra keys
       for (final e in _extraKeys) {
         await service.createKey({
           'barcode':    e.barcodeCtrl.text.trim(),
@@ -125,10 +116,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red.shade600,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -137,43 +125,24 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final top  = MediaQuery.of(context).padding.top;
+    SU.init(context);
 
     return Scaffold(
       backgroundColor: const Color(AppConstants.backgroundColorValue),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── App Bar ──────────────────────────────
-          Container(
-            color: const Color(AppConstants.primaryColorValue),
-            padding: EdgeInsets.only(
-                top: top + 12, bottom: 16, left: 4, right: 16),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios,
-                      color: Colors.white, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Text(
-                  'Add Key',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+          KondoAppBar(
+            title:    'Add Key',
+            showBack: true,
+            showLogo: false,
+            showSettings: false,
           ),
 
-          // ── Body ─────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(
-                horizontal: size.width * 0.04,
+                horizontal: SU.md,
                 vertical: 16,
               ),
               child: Column(
@@ -188,14 +157,13 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                           color: const Color(AppConstants.primaryColorValue),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.key,
-                            color: Colors.white, size: 20),
+                        child: const Icon(Icons.key, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 10),
-                      const Text(
+                      Text(
                         'Key Information',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: SU.textLg,
                           fontWeight: FontWeight.w700,
                           color: Colors.black87,
                         ),
@@ -209,41 +177,37 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(AppConstants.lightOrangeValue),
-                      borderRadius: BorderRadius.circular(20),
+                      color: const Color(0xFFF2EADF),
+                      borderRadius: BorderRadius.circular(SU.radiusLg),
                     ),
                     child: Form(
                       key: _mainFormKey,
                       child: Column(
                         children: [
-                          // ── Barcode with rescan support ──
                           _BarcodeRow(
                             controller: _barcodeCtrl,
                             onScanTap:  () => _scanBarcode(_barcodeCtrl),
                           ),
                           const SizedBox(height: 10),
 
-                          // Owner
                           _KField(
                             controller: _ownerCtrl,
                             hint: "Owner's Name",
                             icon: Icons.person_outline,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Required' : null,
+                            validator: (v) =>
+                                (v == null || v.isEmpty) ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
 
-                          // Unit
                           _KField(
                             controller: _unitCtrl,
                             hint: 'Unit',
                             icon: Icons.grid_view_outlined,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Required' : null,
+                            validator: (v) =>
+                                (v == null || v.isEmpty) ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
 
-                          // Key Type
                           _KDropdown(
                             value:     _keyType,
                             hint:      'Key Type',
@@ -254,7 +218,6 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          // Unit Status
                           _KDropdown(
                             value:     _unitStatus,
                             hint:      'Unit Status',
@@ -265,35 +228,30 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          // Key Holder
                           _KField(
                             controller: _keyHolderCtrl,
                             hint: 'Key Holder',
                             icon: Icons.people_outline,
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Required' : null,
+                            validator: (v) =>
+                                (v == null || v.isEmpty) ? 'Required' : null,
                           ),
                           const SizedBox(height: 10),
 
-                          // ── Key Code (was "Tag") — now a dropdown ──
                           _KDropdown(
                             value:     _keyCode,
                             hint:      'Key Code',
                             icon:      Icons.label_outline,
                             items:     _keyCodeOptions,
                             onChanged: (v) => setState(() => _keyCode = v),
-                            // not required — optional field
                           ),
                           const SizedBox(height: 10),
 
-                          // Date
                           GestureDetector(
                             onTap: _pickDate,
                             child: AbsorbPointer(
                               child: _KField(
                                 controller: TextEditingController(
-                                  text: DateFormat('yyyy-MM-dd')
-                                      .format(_selectedDate),
+                                  text: DateFormat('yyyy-MM-dd').format(_selectedDate),
                                 ),
                                 hint: 'Date',
                                 icon: Icons.calendar_month_outlined,
@@ -305,25 +263,24 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                     ),
                   ),
 
-                  // ── Extra Key Cards ───────────────
+                  // Extra key cards
                   ..._extraKeys.asMap().entries.map((entry) {
                     final i = entry.key;
                     final e = entry.value;
                     return Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: _ExtraKeyCard(
-                        key:             ValueKey(e.id),
-                        data:            e,
-                        keyTypeOptions:  _keyTypeOptions,
-                        onRemove:        () => _removeExtraKey(i),
-                        onScanTap:       () => _scanBarcode(e.barcodeCtrl),
-                        onKeyTypeChanged: (v) =>
-                            setState(() => e.keyType = v),
+                        key:              ValueKey(e.id),
+                        data:             e,
+                        keyTypeOptions:   _keyTypeOptions,
+                        onRemove:         () => _removeExtraKey(i),
+                        onScanTap:        () => _scanBarcode(e.barcodeCtrl),
+                        onKeyTypeChanged: (v) => setState(() => e.keyType = v),
                       ),
                     );
                   }),
 
-                  const SizedBox(height: 20),
+                  SizedBox(height: SU.hp(0.02)),
                 ],
               ),
             ),
@@ -331,10 +288,9 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
         ],
       ),
 
-      // ── Bottom Buttons ──────────────────────────────
       bottomNavigationBar: Container(
         color: const Color(AppConstants.backgroundColorValue),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+        padding: EdgeInsets.fromLTRB(SU.md, 10, SU.md, 24),
         child: Row(
           children: [
             Expanded(
@@ -343,8 +299,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _onSubmit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(AppConstants.successColorValue),
+                    backgroundColor: const Color(AppConstants.successColorValue),
                     shape: const StadiumBorder(),
                     elevation: 0,
                   ),
@@ -352,7 +307,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                       ? const SizedBox(
                           height: 20, width: 20,
                           child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2.5),
+                              color: Colors.white, strokeWidth: 2.5),
                         )
                       : const Text(
                           'Submit',
@@ -372,8 +327,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                 child: ElevatedButton(
                   onPressed: _addExtraKey,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(AppConstants.lightOrangeValue),
+                    backgroundColor: const Color(AppConstants.lightOrangeValue),
                     shape: const StadiumBorder(),
                     elevation: 0,
                   ),
@@ -397,10 +351,10 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
 
 // ── Extra Key Card ─────────────────────────────────────
 class _ExtraKeyCard extends StatelessWidget {
-  final _ExtraKeyData          data;
-  final List<String>           keyTypeOptions;
-  final VoidCallback           onRemove;
-  final VoidCallback           onScanTap;
+  final _ExtraKeyData data;
+  final List<String> keyTypeOptions;
+  final VoidCallback onRemove;
+  final VoidCallback onScanTap;
   final void Function(String?) onKeyTypeChanged;
 
   const _ExtraKeyCard({
@@ -424,7 +378,6 @@ class _ExtraKeyCard extends StatelessWidget {
         key: data.formKey,
         child: Column(
           children: [
-            // Header + X
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -436,39 +389,24 @@ class _ExtraKeyCard extends StatelessWidget {
                         color: const Color(AppConstants.primaryColorValue),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.key,
-                          color: Colors.white, size: 17),
+                      child: const Icon(Icons.key, color: Colors.white, size: 17),
                     ),
                     const SizedBox(width: 8),
                     const Text(
                       'Key Information',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black87),
                     ),
                   ],
                 ),
                 GestureDetector(
                   onTap: onRemove,
-                  child: const Icon(Icons.close,
-                      size: 22, color: Colors.black54),
+                  child: const Icon(Icons.close, size: 22, color: Colors.black54),
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
-            // Barcode (with rescan built in via _BarcodeRow)
-            _BarcodeRow(
-              controller: data.barcodeCtrl,
-              onScanTap:  onScanTap,
-            ),
-
+            _BarcodeRow(controller: data.barcodeCtrl, onScanTap: onScanTap),
             const SizedBox(height: 10),
-
-            // Key Type only
             _KDropdown(
               value:     data.keyType,
               hint:      'Key Type',
@@ -484,15 +422,12 @@ class _ExtraKeyCard extends StatelessWidget {
   }
 }
 
-// ── Barcode Row — shows Scan on empty, Rescan when filled ─
+// ── Barcode Row ────────────────────────────────────────
 class _BarcodeRow extends StatelessWidget {
   final TextEditingController controller;
-  final VoidCallback          onScanTap;
+  final VoidCallback onScanTap;
 
-  const _BarcodeRow({
-    required this.controller,
-    required this.onScanTap,
-  });
+  const _BarcodeRow({required this.controller, required this.onScanTap});
 
   @override
   Widget build(BuildContext context) {
@@ -514,9 +449,7 @@ class _BarcodeRow extends StatelessWidget {
                   hintStyle: TextStyle(
                     color: hasValue ? Colors.black87 : Colors.black38,
                     fontSize: 14,
-                    fontWeight: hasValue
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                    fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -524,28 +457,18 @@ class _BarcodeRow extends StatelessWidget {
             const SizedBox(width: 10),
             ElevatedButton.icon(
               onPressed: onScanTap,
-              icon: Icon(
-                hasValue
-                    ? Icons.qr_code_scanner
-                    : Icons.qr_code_scanner,
-                size: 16,
-                color: Colors.white,
-              ),
+              icon: const Icon(Icons.qr_code_scanner, size: 16, color: Colors.white),
               label: Text(
                 hasValue ? 'Rescan' : 'Scan',
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+                    color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: hasValue
                     ? Colors.orange.shade700
                     : const Color(AppConstants.successColorValue),
                 shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                 elevation: 0,
               ),
             ),
@@ -558,10 +481,10 @@ class _BarcodeRow extends StatelessWidget {
 
 // ── Text Field ─────────────────────────────────────────
 class _KField extends StatelessWidget {
-  final TextEditingController      controller;
-  final String                     hint;
-  final IconData                   icon;
-  final bool                       readOnly;
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool readOnly;
   final String? Function(String?)? validator;
 
   const _KField({
@@ -586,11 +509,11 @@ class _KField extends StatelessWidget {
 
 // ── Dropdown ───────────────────────────────────────────
 class _KDropdown extends StatelessWidget {
-  final String?                    value;
-  final String                     hint;
-  final IconData                   icon;
-  final List<String>               items;
-  final void Function(String?)     onChanged;
+  final String? value;
+  final String hint;
+  final IconData icon;
+  final List<String> items;
+  final void Function(String?) onChanged;
   final String? Function(String?)? validator;
 
   const _KDropdown({
@@ -609,10 +532,8 @@ class _KDropdown extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       decoration: _kInputDeco(hint, icon),
-      icon: const Icon(Icons.keyboard_arrow_down_rounded,
-          color: Colors.black38),
-      dropdownColor:
-          const Color(AppConstants.backgroundColorValue),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black38),
+      dropdownColor: const Color(AppConstants.backgroundColorValue),
       style: const TextStyle(fontSize: 14, color: Colors.black87),
       items: items
           .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -626,13 +547,10 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
   return InputDecoration(
     hintText:  hint,
     hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-    prefixIcon: icon != null
-        ? Icon(icon, color: Colors.black38, size: 18)
-        : null,
+    prefixIcon: icon != null ? Icon(icon, color: Colors.black38, size: 18) : null,
     filled:    true,
     fillColor: const Color(AppConstants.backgroundColorValue),
-    contentPadding: const EdgeInsets.symmetric(
-        vertical: 14, horizontal: 16),
+    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: const BorderSide(color: Colors.black26),
@@ -644,9 +562,7 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: const BorderSide(
-        color: Color(AppConstants.primaryColorValue),
-        width: 1.5,
-      ),
+          color: Color(AppConstants.primaryColorValue), width: 1.5),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -661,9 +577,9 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
 
 // ── Extra Key Data ─────────────────────────────────────
 class _ExtraKeyData {
-  final String id      = UniqueKey().toString();
-  final formKey        = GlobalKey<FormState>();
-  final barcodeCtrl    = TextEditingController();
+  final String id         = UniqueKey().toString();
+  final formKey           = GlobalKey<FormState>();
+  final barcodeCtrl       = TextEditingController();
   String? keyType;
 
   void dispose() => barcodeCtrl.dispose();

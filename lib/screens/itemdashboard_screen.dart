@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/constants.dart';
+import '../utils/screen_util.dart';
+import '../utils/uom_helper.dart';
+import '../widgets/kondo_app_bar.dart';
 import '../models/item_model.dart';
 import '../services/item_service.dart';
+import '../widgets/confirm_dialog.dart';
 import 'add_item_screen.dart';
 import 'issued_items_screen.dart';
 import 'stock_inout_screen.dart';
 
+// ── Palette (matches KeyDashboard modal) ─────────────────
+const _kModalBg     = Color(0xFFF2EADF);
+const _kModalCardBg = Color(0xFFE8DDD0);
+const _kFieldBg     = Colors.white;
+const _kBorderColor = Colors.black38;
+
 class ItemsScreen extends StatefulWidget {
   final String token;
-
   const ItemsScreen({super.key, required this.token});
 
   @override
@@ -41,27 +50,27 @@ class _ItemsScreenState extends State<ItemsScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red.shade600,
+        ));
       }
     }
   }
 
   void _onSearch(String query) {
     setState(() {
-      _filteredItems = _allItems.where((item) =>
-        item.itemName.toLowerCase().contains(query.toLowerCase()),
-      ).toList();
+      _filteredItems = _allItems
+          .where((item) =>
+              item.itemName.toLowerCase().contains(query.toLowerCase()))
+          .toList();
     });
   }
 
   void _showViewModal(ItemModel item) {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.4),
       builder: (_) => _ItemViewModal(
         item:        item,
         itemService: _itemService,
@@ -74,32 +83,27 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Future<void> _goToAddItem() async {
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => AddItemScreen(token: widget.token),
-      ),
+      MaterialPageRoute(builder: (_) => AddItemScreen(token: widget.token)),
     );
     if (result == true) _loadItems();
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    SU.init(context);
 
     return Column(
       children: [
-        // ── Orange App Bar ──────────────────────────────
-        _ItemsAppBar(),
-
-        // ── Body ────────────────────────────────────────
+        KondoAppBar(title: 'Items'),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(size.width * 0.04),
+            padding: EdgeInsets.all(SU.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: size.height * 0.015),
+                SizedBox(height: SU.hp(0.015)),
 
-                // ── Action Cards Row ─────────────────────
+                // ── Action Cards Row ──────────────────
                 Row(
                   children: [
                     Expanded(
@@ -109,7 +113,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         onTap: _goToAddItem,
                       ),
                     ),
-                    SizedBox(width: size.width * 0.03),
+                    SizedBox(width: SU.sm),
                     Expanded(
                       child: _ActionCard(
                         icon:  Icons.output_outlined,
@@ -123,7 +127,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(width: size.width * 0.03),
+                    SizedBox(width: SU.sm),
                     Expanded(
                       child: _ActionCard(
                         icon:  Icons.swap_vert_outlined,
@@ -140,14 +144,13 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ],
                 ),
 
-                SizedBox(height: size.height * 0.02),
+                SizedBox(height: SU.hp(0.02)),
 
-                // ── Item List Header + Search ─────────────
+                // ── Item List Header + Search ──────────
                 Row(
                   children: [
                     Container(
-                      width: 28,
-                      height: 28,
+                      width: 28, height: 28,
                       decoration: BoxDecoration(
                         color: const Color(AppConstants.primaryColorValue),
                         borderRadius: BorderRadius.circular(8),
@@ -155,26 +158,26 @@ class _ItemsScreenState extends State<ItemsScreen> {
                       child: const Icon(Icons.inventory_2,
                           color: Colors.white, size: 16),
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
+                    SizedBox(width: SU.xs),
+                    Text(
                       'Item List',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize:   SU.textLg,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black87,
+                        color:      Colors.black87,
                       ),
                     ),
                     const Spacer(),
                     SizedBox(
-                      width: size.width * 0.38,
+                      width: SU.wp(0.38),
                       height: 38,
                       child: TextField(
                         onChanged: _onSearch,
                         decoration: InputDecoration(
                           hintText:   '',
-                          prefixIcon: const Icon(Icons.search,
-                              size: 18, color: Colors.black45),
-                          filled:     true,
+                          prefixIcon: Icon(Icons.search,
+                              size: SU.iconSm, color: Colors.black45),
+                          filled:    true,
                           fillColor:
                               const Color(AppConstants.lightOrangeValue),
                           contentPadding: EdgeInsets.zero,
@@ -188,24 +191,26 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ],
                 ),
 
-                SizedBox(height: size.height * 0.015),
+                SizedBox(height: SU.hp(0.015)),
 
-                // ── Table ────────────────────────────────
+                // ── Table ─────────────────────────────
                 _isLoading
-                    ? const Center(
+                    ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(
+                          padding: EdgeInsets.all(SU.xl),
+                          child: const CircularProgressIndicator(
                             color: Color(AppConstants.primaryColorValue),
                           ),
                         ),
                       )
                     : _filteredItems.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Padding(
-                              padding: EdgeInsets.all(32),
+                              padding: EdgeInsets.all(SU.xl),
                               child: Text('No items found.',
-                                  style: TextStyle(color: Colors.grey)),
+                                  style: TextStyle(
+                                      color:    Colors.grey,
+                                      fontSize: SU.textMd)),
                             ),
                           )
                         : _ItemTable(
@@ -217,57 +222,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ── App Bar ────────────────────────────────────────────
-class _ItemsAppBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-    return Container(
-      color: const Color(AppConstants.primaryColorValue),
-      padding: EdgeInsets.only(
-        top: topPadding + 12, bottom: 16, left: 16, right: 16,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Center(
-                  child: Text('k',
-                    style: TextStyle(
-                      color: Colors.white, fontSize: 20,
-                      fontWeight: FontWeight.w300,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text('Items',
-                style: TextStyle(
-                  color: Colors.white, fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings_outlined,
-                color: Colors.white, size: 26),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -286,27 +240,27 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    SU.init(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: size.height * 0.12,
+        height: SU.actionCardH,
         decoration: BoxDecoration(
           color: const Color(AppConstants.lightOrangeValue),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(SU.radiusLg),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: size.width * 0.08, color: Colors.black87),
-            SizedBox(height: size.height * 0.006),
+            Icon(icon, size: SU.xl, color: Colors.black87),
+            SizedBox(height: SU.xs),
             Text(
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: size.width * 0.030,
+                fontSize:   SU.textSm,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color:      Colors.black87,
               ),
             ),
           ],
@@ -318,13 +272,14 @@ class _ActionCard extends StatelessWidget {
 
 // ── Item Table ─────────────────────────────────────────
 class _ItemTable extends StatelessWidget {
-  final List<ItemModel>            items;
-  final void Function(ItemModel)   onView;
+  final List<ItemModel>          items;
+  final void Function(ItemModel) onView;
 
   const _ItemTable({required this.items, required this.onView});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Container(
       decoration: BoxDecoration(
         color: const Color(AppConstants.lightOrangeValue),
@@ -332,44 +287,46 @@ class _ItemTable extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Header
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            padding: EdgeInsets.symmetric(
+                vertical: SU.sm, horizontal: SU.sm),
             child: Row(
-              children: const [
+              children: [
                 Expanded(
                   flex: 4,
                   child: Text('Item',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize:   SU.textSm)),
                 ),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: Text('Quantity',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize:   SU.textSm)),
                 ),
                 Expanded(
                   flex: 3,
                   child: Text('Status',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize:   SU.textSm)),
                 ),
                 Expanded(
                   flex: 2,
                   child: Text('Action',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize:   SU.textSm)),
                 ),
               ],
             ),
           ),
-
-          // Rows
           ...items.asMap().entries.map((entry) {
             final isLast = entry.key == items.length - 1;
             final item   = entry.value;
@@ -399,6 +356,7 @@ class _ItemTableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -406,81 +364,63 @@ class _ItemTableRow extends StatelessWidget {
             ? const BorderRadius.vertical(bottom: Radius.circular(16))
             : BorderRadius.zero,
         border: const Border(
-          top: BorderSide(color: Color(0xFFE8D5C0), width: 0.5),
-        ),
+            top: BorderSide(color: Color(0xFFE8D5C0), width: 0.5)),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      padding: EdgeInsets.symmetric(
+          vertical: SU.sm, horizontal: SU.sm),
       child: Row(
         children: [
-          // Item col: thumbnail + name
           Expanded(
             flex: 4,
             child: Row(
               children: [
-                // Small thumbnail
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: item.imageUrl.isNotEmpty
-                      ? Image.network(
-                          item.imageUrl,
-                          width: 32,
-                          height: 32,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _PlaceholderThumb(),
-                        )
+                      ? Image.network(item.imageUrl,
+                          width: 30, height: 30, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _PlaceholderThumb())
                       : _PlaceholderThumb(),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: SU.xs),
                 Expanded(
-                  child: Text(
-                    item.itemName,
-                    style: const TextStyle(fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(item.itemName,
+                      style: TextStyle(fontSize: SU.textXs),
+                      overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
           ),
-
-          // Quantity
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
-              item.isConsumable
-                  ? '${item.quantity} pcs'
-                  : '${item.quantity} pc',
+              item.quantityDisplay,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: SU.textXs),
             ),
           ),
-
-          // Status badge
           Expanded(
             flex: 3,
             child: Center(child: _StatusBadge(status: item.stockStatus)),
           ),
-
-          // View button
           Expanded(
             flex: 2,
             child: Center(
               child: GestureDetector(
                 onTap: onView,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: SU.sm, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(AppConstants.successColorValue),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'View',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                    ),
-                  ),
+                  child: Text('View',
+                      style: TextStyle(
+                          color:      Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize:   SU.textXs)),
                 ),
               ),
             ),
@@ -491,30 +431,28 @@ class _ItemTableRow extends StatelessWidget {
   }
 }
 
-// ── Placeholder Thumbnail ──────────────────────────────
 class _PlaceholderThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32, height: 32,
+      width: 30, height: 30,
       decoration: BoxDecoration(
         color: const Color(AppConstants.lightOrangeValue),
         borderRadius: BorderRadius.circular(6),
       ),
       child: const Icon(Icons.inventory_2_outlined,
-          size: 16, color: Colors.black45),
+          size: 14, color: Colors.black45),
     );
   }
 }
 
-// ── Status Badge ───────────────────────────────────────
 class _StatusBadge extends StatelessWidget {
   final String status;
-
   const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     Color color;
     switch (status) {
       case 'High':
@@ -532,28 +470,25 @@ class _StatusBadge extends StatelessWidget {
       default:
         color = Colors.grey;
     }
-
     final label = status == 'OutOfStock' ? 'Out-of-stock' : status;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: SU.sm, vertical: 3),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
-        ),
-      ),
+      child: Text(label,
+          style: TextStyle(
+              color:      Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize:   SU.textXs)),
     );
   }
 }
 
-// ── Item View Modal ────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  ITEM VIEW MODAL  (redesigned — matches KeyDashboard)
+// ═══════════════════════════════════════════════════════
 class _ItemViewModal extends StatefulWidget {
   final ItemModel    item;
   final ItemService  itemService;
@@ -576,48 +511,76 @@ class _ItemViewModalState extends State<_ItemViewModal> {
   bool _isSaving   = false;
   bool _isDeleting = false;
 
+  // Text controllers
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _quantityCtrl;
-  late final TextEditingController _minStockCtrl;
-  late final TextEditingController _maxStockCtrl;
-  late final TextEditingController _descriptionCtrl;
   late final TextEditingController _barcodeCtrl;
+  late final TextEditingController _descriptionCtrl;
+
+  // Editable numeric values (in preferredUnit)
+  late double _quantity;
+  late double _minStock;
+  late double _maxStock;
+
+  // Dropdown values
+  String? _unitType;
+  String? _preferredUnit;
   late DateTime _selectedDate;
+
+  static String _fmtVal(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  static const List<String> _unitTypeOptions    = ['Liquid', 'Solid', 'Count'];
+
+  List<String> get _preferredUnitOptions =>
+      UOM.unitsFor(_unitType ?? widget.item.unitType);
 
   @override
   void initState() {
     super.initState();
-    final item = widget.item;
-    _nameCtrl        = TextEditingController(text: item.itemName);
-    _quantityCtrl    = TextEditingController(text: '${item.quantity}');
-    _minStockCtrl    = TextEditingController(text: '${item.minStock}');
-    _maxStockCtrl    = TextEditingController(text: '${item.maxStock}');
-    _descriptionCtrl = TextEditingController(text: item.description);
-    _barcodeCtrl     = TextEditingController(text: item.barcode);
-    _selectedDate    = item.date;
+    final item        = widget.item;
+    _nameCtrl         = TextEditingController(text: item.itemName);
+    _barcodeCtrl      = TextEditingController(text: item.barcode);
+    _descriptionCtrl  = TextEditingController(text: item.description);
+    _quantity         = item.quantityInPreferred;
+    _minStock         = item.minStockInPreferred;
+    _maxStock         = item.maxStockInPreferred;
+    _unitType         = item.unitType.isNotEmpty ? item.unitType : null;
+    _preferredUnit    = item.preferredUnit;
+    _selectedDate     = item.date;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _quantityCtrl.dispose();
-    _minStockCtrl.dispose();
-    _maxStockCtrl.dispose();
-    _descriptionCtrl.dispose();
     _barcodeCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Save ──────────────────────────────────────────────
+  Future<void> _onSaveTap() async {
+    final confirmed = await ConfirmDialog.showSave(context);
+    if (!confirmed) return;
+    _save();
   }
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
+      final pUnit  = _preferredUnit ?? widget.item.preferredUnit;
+      final cf     = widget.item.conversionFactor;
+
       await widget.itemService.updateItem(widget.item.id, {
-        'barcode':     _barcodeCtrl.text.trim(),
-        'itemName':    _nameCtrl.text.trim(),
-        'itemType':    widget.item.itemType,
-        'quantity':    int.tryParse(_quantityCtrl.text) ?? widget.item.quantity,
-        'minStock':    int.tryParse(_minStockCtrl.text) ?? widget.item.minStock,
-        'maxStock':    int.tryParse(_maxStockCtrl.text) ?? widget.item.maxStock,
+        'barcode':          _barcodeCtrl.text.trim(),
+        'itemName':         _nameCtrl.text.trim(),
+        'itemType':         widget.item.itemType,
+        'unitType':         _unitType         ?? widget.item.unitType,
+        'baseUnit':         widget.item.baseUnit,
+        'preferredUnit':    pUnit,
+        'conversionFactor': cf,
+        'quantity': UOM.toBase(_quantity,  pUnit, conversionFactor: cf),
+        'minStock': UOM.toBase(_minStock,  pUnit, conversionFactor: cf),
+        'maxStock': UOM.toBase(_maxStock,  pUnit, conversionFactor: cf),
         'description': _descriptionCtrl.text.trim(),
         'imageUrl':    widget.item.imageUrl,
         'date':        _selectedDate.toIso8601String(),
@@ -625,46 +588,33 @@ class _ItemViewModalState extends State<_ItemViewModal> {
       widget.onUpdated();
       if (mounted) {
         setState(() { _isEditing = false; _isSaving = false; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Item updated successfully!'),
-            backgroundColor: Color(AppConstants.successColorValue),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Item updated successfully!'),
+          backgroundColor: Color(AppConstants.successColorValue),
+        ));
       }
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'),
-              backgroundColor: Colors.red.shade600),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red.shade600));
       }
     }
   }
 
-  Future<void> _delete() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Item'),
-        content: const Text('Are you sure you want to delete this item?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+  // ── Delete ─────────────────────────────────────────────
+  Future<void> _onDeleteTap() async {
+    final confirmed = await ConfirmDialog.showDelete(
+      context,
+      message: 'Are you sure you want to delete "${widget.item.itemName}"?'
+               ' This action cannot be undone.',
     );
+    if (!confirmed) return;
+    _delete();
+  }
 
-    if (confirm != true) return;
-
+  Future<void> _delete() async {
     setState(() => _isDeleting = true);
     try {
       await widget.itemService.deleteItem(widget.item.id);
@@ -673,10 +623,9 @@ class _ItemViewModalState extends State<_ItemViewModal> {
     } catch (e) {
       setState(() => _isDeleting = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'),
-              backgroundColor: Colors.red.shade600),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red.shade600));
       }
     }
   }
@@ -688,11 +637,10 @@ class _ItemViewModalState extends State<_ItemViewModal> {
       initialDate: _selectedDate,
       firstDate:   DateTime(2000),
       lastDate:    DateTime(2100),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: Color(AppConstants.primaryColorValue),
-          ),
+              primary: Color(AppConstants.primaryColorValue)),
         ),
         child: child!,
       ),
@@ -702,50 +650,75 @@ class _ItemViewModalState extends State<_ItemViewModal> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isConsumable = widget.item.itemType == 'Consumable';
+    SU.init(context);
+    final size          = MediaQuery.of(context).size;
+    final isConsumable  = widget.item.itemType == 'Consumable';
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.symmetric(
-        horizontal: size.width * 0.05,
-        vertical:   size.height * 0.06,
+        horizontal: SU.md,
+        vertical:   SU.hp(0.02),
       ),
       child: Container(
+        width: size.width * 0.95,
+        constraints: BoxConstraints(maxHeight: size.height * 0.9),
         decoration: BoxDecoration(
-          color: const Color(AppConstants.lightOrangeValue),
-          borderRadius: BorderRadius.circular(24),
+          color: _kModalBg,
+          borderRadius: BorderRadius.circular(SU.radiusXl),
+          boxShadow: [
+            BoxShadow(
+              color:      Colors.black.withOpacity(0.15),
+              blurRadius: 24,
+              offset:     const Offset(0, 8),
+            ),
+          ],
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Header ────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Header ────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              decoration: BoxDecoration(
+                color: _kModalCardBg,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(SU.radiusXl),
+                ),
+              ),
+              child: Row(
                 children: [
-                  _isEditing
-                      ? Row(
-                          children: [
-                            _ModalBtn(
-                              label: _isSaving ? '...' : 'Save',
-                              color: const Color(AppConstants.primaryColorValue),
-                              onTap: _isSaving ? null : _save,
-                            ),
-                            const SizedBox(width: 8),
-                            _ModalBtn(
-                              label: _isDeleting ? '...' : 'Delete',
-                              color: Colors.red.shade500,
-                              onTap: _isDeleting ? null : _delete,
-                            ),
-                          ],
-                        )
-                      : _ModalBtn(
-                          label: 'Edit',
-                          color: const Color(AppConstants.successColorValue),
-                          onTap: () => setState(() => _isEditing = true),
-                        ),
+                  Flexible(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_isEditing) ...[
+                          _ModalBtn(
+                            label: _isSaving ? '...' : 'Save',
+                            color: const Color(AppConstants.primaryColorValue),
+                            onTap: _isSaving ? null : _onSaveTap,
+                          ),
+                          _ModalBtn(
+                            label: _isDeleting ? '...' : 'Delete',
+                            color: Colors.red.shade500,
+                            onTap: _isDeleting ? null : _onDeleteTap,
+                          ),
+                          _ModalBtn(
+                            label: 'Cancel',
+                            color: Colors.grey.shade600,
+                            onTap: () => setState(() => _isEditing = false),
+                          ),
+                        ] else ...[
+                          _ModalBtn(
+                            label: 'Edit',
+                            color: const Color(AppConstants.primaryColorValue),
+                            onTap: () => setState(() => _isEditing = true),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: const Icon(Icons.close,
@@ -753,160 +726,343 @@ class _ItemViewModalState extends State<_ItemViewModal> {
                   ),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 16),
-
-              // ── Item Image ────────────────────────
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: widget.item.imageUrl.isNotEmpty
-                    ? Image.network(
-                        widget.item.imageUrl,
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _ImagePlaceholder(),
-                      )
-                    : _ImagePlaceholder(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ── Item Type (read-only) ─────────────
-              _modalLabel('Item Type'),
-              const SizedBox(height: 6),
-              _ModalReadOnly(text: widget.item.itemType),
-
-              const SizedBox(height: 12),
-
-              // ── Item Name + Quantity ──────────────
-              Row(
-                children: [
-                  Expanded(child: _modalLabel('Item Name')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _modalLabel('Quantity')),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ModalTextField(
-                      controller: _nameCtrl,
-                      readOnly:   !_isEditing,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ModalTextField(
-                      controller: _quantityCtrl,
-                      readOnly:   !_isEditing,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // ── Consumable-only: Min/Max Stock ────
-              if (isConsumable) ...[
-                Row(
+            // ── Scrollable body ──────────────────────
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(SU.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(child: _modalLabel('Min Stock')),
-                    const SizedBox(width: 12),
-                    Expanded(child: _modalLabel('Max Stock')),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ModalTextField(
-                        controller:   _minStockCtrl,
-                        readOnly:     !_isEditing,
-                        keyboardType: TextInputType.number,
+                    // ── Item summary card ──────────────
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _kModalCardBg,
+                        borderRadius: BorderRadius.circular(SU.radius),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          // Thumbnail
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: widget.item.imageUrl.isNotEmpty
+                                ? Image.network(
+                                    widget.item.imageUrl,
+                                    width: 56, height: 56,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        _SummaryThumb(),
+                                  )
+                                : _SummaryThumb(),
+                          ),
+                          SizedBox(width: SU.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.item.itemName,
+                                  style: const TextStyle(
+                                    fontSize:   15,
+                                    fontWeight: FontWeight.w700,
+                                    color:      Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.item.itemType,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _StatusBadge(status: widget.item.stockStatus),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ModalTextField(
-                        controller:   _maxStockCtrl,
-                        readOnly:     !_isEditing,
-                        keyboardType: TextInputType.number,
+
+                    SizedBox(height: SU.md),
+
+                    // ── Item Name + Barcode ────────────
+                    _ModalRow(
+                      leftLabel:  'Item Name',
+                      rightLabel: isConsumable ? '' : 'Barcode',
+                      leftChild: _isEditing
+                          ? _ModalTextField(controller: _nameCtrl)
+                          : _ModalReadOnly(text: widget.item.itemName),
+                      rightChild: isConsumable
+                          ? const SizedBox.shrink()
+                          : _ModalReadOnly(
+                              text: _barcodeCtrl.text.isEmpty
+                                  ? '—' : _barcodeCtrl.text),
+                    ),
+
+                    if (isConsumable) ...[
+                      SizedBox(height: SU.sm),
+
+                      // ── Unit Type + Preferred Unit ───
+                      _ModalRow(
+                        leftLabel:  'Unit Type',
+                        rightLabel: 'Preferred Unit',
+                        leftChild: _isEditing
+                            ? _ModalDropdownField(
+                                value:     _unitType,
+                                items:     _unitTypeOptions,
+                                onChanged: (v) => setState(() {
+                                  _unitType      = v;
+                                  // reset preferred if no longer valid
+                                  final newUnits = UOM.unitsFor(v ?? 'Count');
+                                  if (!newUnits.contains(_preferredUnit)) {
+                                    _preferredUnit = newUnits.first;
+                                  }
+                                }),
+                              )
+                            : _ModalReadOnly(
+                                text: widget.item.unitType.isNotEmpty
+                                    ? widget.item.unitType : '—'),
+                        rightChild: _isEditing
+                            ? _ModalDropdownField(
+                                value:     _preferredUnit,
+                                items:     _preferredUnitOptions,
+                                onChanged: (v) =>
+                                    setState(() => _preferredUnit = v),
+                              )
+                            : _ModalReadOnly(text: widget.item.preferredUnit),
+                      ),
+
+                      SizedBox(height: SU.sm),
+
+                      // ── Quantity ───────────────────────
+                      _ModalLabel('Quantity (${_preferredUnit ?? widget.item.preferredUnit})'),
+                      SizedBox(height: SU.xs),
+                      _isEditing
+                          ? _StepperField(
+                              value:     _quantity,
+                              step:      1,
+                              min:       0,
+                              onChanged: (v) => setState(() => _quantity = v),
+                            )
+                          : _ModalReadOnly(text: _fmtVal(_quantity)),
+
+                      SizedBox(height: SU.sm),
+
+                      // ── Min / Max Stock ────────────────
+                      _ModalRow(
+                        leftLabel:  'Min Stock (${_preferredUnit ?? widget.item.preferredUnit})',
+                        rightLabel: 'Max Stock (${_preferredUnit ?? widget.item.preferredUnit})',
+                        leftChild: _isEditing
+                            ? _StepperField(
+                                value:     _minStock,
+                                step:      1,
+                                min:       0,
+                                onChanged: (v) => setState(() => _minStock = v),
+                              )
+                            : _ModalReadOnly(text: _fmtVal(_minStock)),
+                        rightChild: _isEditing
+                            ? _StepperField(
+                                value:     _maxStock,
+                                step:      1,
+                                min:       0,
+                                onChanged: (v) => setState(() => _maxStock = v),
+                              )
+                            : _ModalReadOnly(text: _fmtVal(_maxStock)),
+                      ),
+                    ],
+
+                    // ── NonConsumable: Description ───────
+                    if (!isConsumable) ...[
+                      SizedBox(height: SU.sm),
+                      _ModalLabel('Description'),
+                      SizedBox(height: SU.xs),
+                      _isEditing
+                          ? _ModalTextField(
+                              controller: _descriptionCtrl,
+                              maxLines:   4,
+                            )
+                          : _ModalReadOnly(
+                              text:     _descriptionCtrl.text.isNotEmpty
+                                  ? _descriptionCtrl.text : '—',
+                              maxLines: 4,
+                            ),
+                    ],
+
+                    SizedBox(height: SU.sm),
+
+                    // ── Date ──────────────────────────────
+                    _ModalLabel('Date'),
+                    SizedBox(height: SU.xs),
+                    GestureDetector(
+                      onTap: _pickDate,
+                      child: _ModalReadOnly(
+                        text:      DateFormat('yyyy-MM-dd').format(_selectedDate),
+                        isEditing: _isEditing,
                       ),
                     ),
+
+                    SizedBox(height: SU.md),
                   ],
                 ),
-                const SizedBox(height: 12),
-              ],
-
-              // ── NonConsumable-only: Description + Barcode ──
-              if (!isConsumable) ...[
-                _modalLabel('Description'),
-                const SizedBox(height: 6),
-                _ModalTextField(
-                  controller: _descriptionCtrl,
-                  readOnly:   !_isEditing,
-                  maxLines:   3,
-                ),
-                const SizedBox(height: 12),
-
-                _modalLabel('Barcode'),
-                const SizedBox(height: 6),
-                _ModalReadOnly(text: _barcodeCtrl.text.isEmpty
-                    ? '—' : _barcodeCtrl.text),
-                const SizedBox(height: 12),
-              ],
-
-              // ── Date ─────────────────────────────
-              _modalLabel('Date'),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: _pickDate,
-                child: _ModalReadOnly(
-                  text: DateFormat('yyyy-MM-dd').format(_selectedDate),
-                  isEditing: _isEditing,
-                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
-
-  Widget _modalLabel(String text) => Text(
-    text,
-    style: const TextStyle(
-      fontWeight: FontWeight.w700,
-      fontSize: 13,
-      color: Colors.black87,
-    ),
-  );
 }
 
-// ── Image Placeholder ──────────────────────────────────
-class _ImagePlaceholder extends StatelessWidget {
+// ── Summary Thumbnail ──────────────────────────────────
+class _SummaryThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: 160,
+      width: 56, height: 56,
       decoration: BoxDecoration(
         color: const Color(AppConstants.backgroundColorValue),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: const Icon(Icons.image_outlined,
-          size: 48, color: Colors.black26),
+      child: const Icon(Icons.inventory_2_outlined,
+          size: 26, color: Colors.black26),
     );
   }
 }
 
-// ── Modal Helpers ──────────────────────────────────────
+// ── Stepper Field ──────────────────────────────────────
+class _StepperField extends StatelessWidget {
+  final double   value;
+  final double   step;
+  final double   min;
+  final void Function(double) onChanged;
+
+  const _StepperField({
+    required this.value,
+    required this.step,
+    required this.min,
+    required this.onChanged,
+  });
+
+  String _fmt(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    SU.init(context);
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color:        _kFieldBg,
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: _kBorderColor),
+      ),
+      child: Row(
+        children: [
+          // Decrement
+          GestureDetector(
+            onTap: () {
+              if (value - step >= min) onChanged(value - step);
+            },
+            child: Container(
+              width: 44, height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8DDD0),
+                borderRadius: BorderRadius.only(
+                  topLeft:    Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                ),
+              ),
+              child: const Icon(Icons.remove, size: 18, color: Colors.black54),
+            ),
+          ),
+          // Value
+          Expanded(
+            child: Center(
+              child: Text(
+                _fmt(value),
+                style: TextStyle(
+                  fontSize:   SU.textMd,
+                  fontWeight: FontWeight.w700,
+                  color:      Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          // Increment
+          GestureDetector(
+            onTap: () => onChanged(value + step),
+            child: Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: const Color(AppConstants.primaryColorValue),
+                borderRadius: const BorderRadius.only(
+                  topRight:    Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: const Icon(Icons.add, size: 18, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Modal Helper Widgets ───────────────────────────────
+
+class _ModalRow extends StatelessWidget {
+  final String leftLabel;
+  final String rightLabel;
+  final Widget leftChild;
+  final Widget rightChild;
+
+  const _ModalRow({
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.leftChild,
+    required this.rightChild,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(child: _ModalLabel(leftLabel)),
+          const SizedBox(width: 12),
+          Expanded(child: _ModalLabel(rightLabel)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(child: leftChild),
+          const SizedBox(width: 12),
+          Expanded(child: rightChild),
+        ]),
+      ],
+    );
+  }
+}
+
+class _ModalLabel extends StatelessWidget {
+  final String text;
+  const _ModalLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(
+        fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87),
+  );
+}
+
 class _ModalBtn extends StatelessWidget {
-  final String       label;
-  final Color        color;
+  final String        label;
+  final Color         color;
   final VoidCallback? onTap;
 
   const _ModalBtn({required this.label, required this.color, this.onTap});
@@ -916,17 +1072,18 @@ class _ModalBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: color,
+          color: onTap != null ? color : Colors.grey.shade300,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label,
-            style: const TextStyle(
-              color: Colors.white,
+        child: Text(
+          label,
+          style: const TextStyle(
+              color:      Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 13,
-            )),
+              fontSize:   12),
+        ),
       ),
     );
   }
@@ -934,46 +1091,84 @@ class _ModalBtn extends StatelessWidget {
 
 class _ModalTextField extends StatelessWidget {
   final TextEditingController controller;
-  final bool readOnly;
-  final TextInputType keyboardType;
-  final int maxLines;
+  final int                   maxLines;
 
-  const _ModalTextField({
-    required this.controller,
-    required this.readOnly,
-    this.keyboardType = TextInputType.text,
-    this.maxLines = 1,
-  });
+  const _ModalTextField({required this.controller, this.maxLines = 1});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller:   controller,
-      readOnly:     readOnly,
       textAlign:    TextAlign.center,
-      keyboardType: keyboardType,
       maxLines:     maxLines,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         filled:    true,
-        fillColor: Colors.white,
+        fillColor: _kFieldBg,
         contentPadding: const EdgeInsets.symmetric(
             vertical: 12, horizontal: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.black26),
+          borderSide: const BorderSide(color: _kBorderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.black26),
+          borderSide: const BorderSide(color: _kBorderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
-            color: Color(AppConstants.primaryColorValue), width: 1.5,
-          ),
+              color: Color(AppConstants.primaryColorValue), width: 1.5),
         ),
       ),
+    );
+  }
+}
+
+class _ModalDropdownField extends StatelessWidget {
+  final String?                value;
+  final List<String>           items;
+  final void Function(String?) onChanged;
+
+  const _ModalDropdownField({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      value:     value,
+      onChanged: onChanged,
+      isDense:   true,
+      decoration: InputDecoration(
+        filled:    true,
+        fillColor: _kFieldBg,
+        contentPadding: const EdgeInsets.symmetric(
+            vertical: 10, horizontal: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _kBorderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _kBorderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+              color: Color(AppConstants.primaryColorValue), width: 1.5),
+        ),
+      ),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+          color: Colors.black45, size: 18),
+      dropdownColor: _kModalBg,
+      items: items
+          .map((e) => DropdownMenuItem(
+              value: e,
+              child: Text(e, style: const TextStyle(fontSize: 12))))
+          .toList(),
     );
   }
 }
@@ -981,8 +1176,13 @@ class _ModalTextField extends StatelessWidget {
 class _ModalReadOnly extends StatelessWidget {
   final String text;
   final bool   isEditing;
+  final int    maxLines;
 
-  const _ModalReadOnly({required this.text, this.isEditing = false});
+  const _ModalReadOnly({
+    required this.text,
+    this.isEditing = false,
+    this.maxLines  = 1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -990,18 +1190,20 @@ class _ModalReadOnly extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _kFieldBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isEditing
               ? const Color(AppConstants.primaryColorValue)
-              : Colors.black26,
+              : _kBorderColor,
           width: isEditing ? 1.5 : 1,
         ),
       ),
       child: Text(
         text,
         textAlign: TextAlign.center,
+        maxLines:  maxLines,
+        overflow:  TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 13),
       ),
     );

@@ -22,10 +22,15 @@ public class ItemTransaction
     public string UserName { get; set; } = string.Empty;
 
     [BsonElement("transactionType")]
-    public string TransactionType { get; set; } = string.Empty; // "StockIn" / "StockOut" / "Issued" / "Returned"
+    public string TransactionType { get; set; } = string.Empty;
 
+    /// Quantity stored in base unit (mL, g, pcs)
     [BsonElement("quantity")]
-    public int Quantity { get; set; } = 1;
+    public double Quantity { get; set; } = 1;
+
+    /// The base unit at time of transaction (mL / g / pcs)
+    [BsonElement("baseUnit")]
+    public string BaseUnit { get; set; } = "pcs";
 
     [BsonElement("photoProofUrl")]
     public string? PhotoProofUrl { get; set; } = null;
@@ -37,5 +42,5 @@ public class ItemTransaction
     public DateTime? CheckInDate { get; set; } = null;
 
     [BsonElement("status")]
-    public string? Status { get; set; } = null; // "Issued" / "Returned" for NonConsumable, null for Consumable
+    public string? Status { get; set; } = null;
 }

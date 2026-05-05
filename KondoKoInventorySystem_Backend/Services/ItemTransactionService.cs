@@ -15,18 +15,21 @@ public class ItemTransactionService : IItemTransactionService
     }
 
     // ── Stock In (Consumable) ─────────────────────────────
+    // Quantity received is already converted to base unit by Flutter
     public async Task<ItemTransactionResponseDto> StockInAsync(
-        string barcode, string userId, string userName, int quantity, string photoProofUrl)
+        string barcode, string userId, string userName,
+        double quantity, string photoProofUrl)
     {
         var item = await _context.Items
             .Find(i => i.Barcode == barcode || i.Id == barcode)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException($"No item found with barcode '{barcode}'.");
+            ?? throw new KeyNotFoundException(
+                $"No item found with barcode '{barcode}'.");
 
         if (item.ItemType != "Consumable")
-            throw new InvalidOperationException("StockIn is only for Consumable items.");
+            throw new InvalidOperationException(
+                "StockIn is only for Consumable items.");
 
-        // Increase quantity
         var updateItem = Builders<Item>.Update
             .Inc(i => i.Quantity, quantity);
         await _context.Items.UpdateOneAsync(i => i.Id == item.Id, updateItem);
@@ -39,6 +42,7 @@ public class ItemTransactionService : IItemTransactionService
             UserName        = userName,
             TransactionType = "StockIn",
             Quantity        = quantity,
+            BaseUnit        = item.BaseUnit,
             PhotoProofUrl   = photoProofUrl,
             CheckOutDate    = DateTime.UtcNow,
             Status          = null
@@ -50,21 +54,24 @@ public class ItemTransactionService : IItemTransactionService
 
     // ── Stock Out (Consumable) ────────────────────────────
     public async Task<ItemTransactionResponseDto> StockOutAsync(
-        string barcode, string userId, string userName, int quantity, string photoProofUrl)
+        string barcode, string userId, string userName,
+        double quantity, string photoProofUrl)
     {
         var item = await _context.Items
             .Find(i => i.Barcode == barcode || i.Id == barcode)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException($"No item found with barcode '{barcode}'.");
+            ?? throw new KeyNotFoundException(
+                $"No item found with barcode '{barcode}'.");
 
         if (item.ItemType != "Consumable")
-            throw new InvalidOperationException("StockOut is only for Consumable items.");
+            throw new InvalidOperationException(
+                "StockOut is only for Consumable items.");
 
         if (item.Quantity < quantity)
             throw new InvalidOperationException(
-                $"Insufficient stock. Available: {item.Quantity}, Requested: {quantity}.");
+                $"Insufficient stock. Available: {item.Quantity} {item.BaseUnit}, " +
+                $"Requested: {quantity} {item.BaseUnit}.");
 
-        // Decrease quantity
         var updateItem = Builders<Item>.Update
             .Inc(i => i.Quantity, -quantity);
         await _context.Items.UpdateOneAsync(i => i.Id == item.Id, updateItem);
@@ -77,6 +84,7 @@ public class ItemTransactionService : IItemTransactionService
             UserName        = userName,
             TransactionType = "StockOut",
             Quantity        = quantity,
+            BaseUnit        = item.BaseUnit,
             PhotoProofUrl   = photoProofUrl,
             CheckOutDate    = DateTime.UtcNow,
             Status          = null
@@ -92,9 +100,9 @@ public class ItemTransactionService : IItemTransactionService
         var item = await _context.Items
             .Find(i => i.Barcode == barcode)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException($"No item found with barcode '{barcode}'.");
+            ?? throw new KeyNotFoundException(
+                $"No item found with barcode '{barcode}'.");
 
-        // Check if currently issued
         var activeTransaction = await _context.ItemTransactions
             .Find(t => t.ItemId == item.Id && t.Status == "Issued")
             .FirstOrDefaultAsync();
@@ -118,12 +126,13 @@ public class ItemTransactionService : IItemTransactionService
         var item = await _context.Items
             .Find(i => i.Barcode == barcode)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException($"No item found with barcode '{barcode}'.");
+            ?? throw new KeyNotFoundException(
+                $"No item found with barcode '{barcode}'.");
 
         if (item.ItemType != "NonConsumable")
-            throw new InvalidOperationException("Issue is only for NonConsumable items.");
+            throw new InvalidOperationException(
+                "Issue is only for NonConsumable items.");
 
-        // Check if already issued
         var existing = await _context.ItemTransactions
             .Find(t => t.ItemId == item.Id && t.Status == "Issued")
             .FirstOrDefaultAsync();
@@ -140,6 +149,7 @@ public class ItemTransactionService : IItemTransactionService
             UserName        = userName,
             TransactionType = "Issued",
             Quantity        = 1,
+            BaseUnit        = "pcs",
             PhotoProofUrl   = null,
             CheckOutDate    = DateTime.UtcNow,
             Status          = "Issued"
@@ -156,7 +166,8 @@ public class ItemTransactionService : IItemTransactionService
         var item = await _context.Items
             .Find(i => i.Barcode == barcode)
             .FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException($"No item found with barcode '{barcode}'.");
+            ?? throw new KeyNotFoundException(
+                $"No item found with barcode '{barcode}'.");
 
         var transaction = await _context.ItemTransactions
             .Find(t => t.ItemId == item.Id && t.Status == "Issued")
@@ -179,8 +190,9 @@ public class ItemTransactionService : IItemTransactionService
         return MapToResponse(transaction);
     }
 
-    // ── My Issued (currently issued to me) ────────────────
-    public async Task<List<ItemTransactionResponseDto>> GetMyIssuedAsync(string userId)
+    // ── My Issued ─────────────────────────────────────────
+    public async Task<List<ItemTransactionResponseDto>> GetMyIssuedAsync(
+        string userId)
     {
         var transactions = await _context.ItemTransactions
             .Find(t => t.UserId == userId && t.Status == "Issued")
@@ -191,7 +203,8 @@ public class ItemTransactionService : IItemTransactionService
     }
 
     // ── My History ────────────────────────────────────────
-    public async Task<List<ItemTransactionResponseDto>> GetMyHistoryAsync(string userId)
+    public async Task<List<ItemTransactionResponseDto>> GetMyHistoryAsync(
+        string userId)
     {
         var transactions = await _context.ItemTransactions
             .Find(t => t.UserId == userId)
@@ -213,7 +226,8 @@ public class ItemTransactionService : IItemTransactionService
     }
 
     // ── Map ───────────────────────────────────────────────
-    private static ItemTransactionResponseDto MapToResponse(ItemTransaction t) => new()
+    private static ItemTransactionResponseDto MapToResponse(
+        ItemTransaction t) => new()
     {
         Id              = t.Id ?? "",
         ItemId          = t.ItemId,
@@ -222,6 +236,7 @@ public class ItemTransactionService : IItemTransactionService
         UserName        = t.UserName,
         TransactionType = t.TransactionType,
         Quantity        = t.Quantity,
+        BaseUnit        = t.BaseUnit,
         PhotoProofUrl   = t.PhotoProofUrl,
         CheckOutDate    = t.CheckOutDate,
         CheckInDate     = t.CheckInDate,

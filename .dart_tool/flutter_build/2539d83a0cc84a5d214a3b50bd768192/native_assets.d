@@ -1,1 +1,0 @@
- C:\\Users\\Alfred\\Desktop\\KondoKo\\kondokoinventorysystem\\.dart_tool\\flutter_build\\2539d83a0cc84a5d214a3b50bd768192\\native_assets.yaml: 

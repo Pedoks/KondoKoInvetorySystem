@@ -1,5 +1,3 @@
-// KondoKoInventorySystem_Backend/DTOs/KeyGroupDtos.cs
-
 namespace KondoKoInventorySystem_Backend.DTOs;
 
 public class KeyGroupResponseDto
@@ -13,6 +11,7 @@ public class KeyGroupResponseDto
     public DateTime Date { get; set; }
     public int TotalKeys { get; set; }
     public int AvailableKeys { get; set; }
+    public List<string> CheckedOutKeyIds { get; set; } = new(); // ← NEW
     public List<KeyResponseDto> Keys { get; set; } = new();
 }
 
