@@ -19,8 +19,8 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
   final _barcodeCtrl   = TextEditingController();
   final _ownerCtrl     = TextEditingController();
   final _unitCtrl      = TextEditingController();
-  final _keyHolderCtrl = TextEditingController();
-
+  
+  String? _keyHolder;
   String?  _keyType;
   String?  _unitStatus;
   String?  _keyCode;
@@ -30,20 +30,33 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
   bool _isSubmitting = false;
 
   static const List<String> _keyTypeOptions = [
-    'Key Bundle', 'Main Door', 'Mail Box',
-    'Bedroom 1',  'Bedroom 2', 'Comfort Room',
+    'Access Card', 'Balcony','Bathroom',
+    'Bedroom','Bedroom 2', 'Double Lock',
+    'Kitchen Cabinet', 'Laundry Area', 'Maids Room',
+    'Mailbox', 'Main Door','Key Bundle', 'Undefined',
+    'Bathroom 2',
+
+    
   ];
   static const List<String> _unitStatusOptions = ['Rented', 'Terminated'];
   static const List<String> _keyCodeOptions = [
     'Code 0', 'Code 1', 'Code 2', 'Code 3', 'Code 4',
   ];
 
+  static const List<String> _keyHolderOptions = [
+  'Aieleen Berte',
+  'Aleris Salonga',
+  'Cindy Neri',
+  'Daphne Ann Lato',
+  'Elsa Aquino',
+  'Eric Velasco',
+];
+
   @override
   void dispose() {
     _barcodeCtrl.dispose();
     _ownerCtrl.dispose();
     _unitCtrl.dispose();
-    _keyHolderCtrl.dispose();
     for (final e in _extraKeys) e.dispose();
     super.dispose();
   }
@@ -93,7 +106,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
         'unit':       _unitCtrl.text.trim(),
         'keyType':    _keyType    ?? '',
         'unitStatus': _unitStatus ?? '',
-        'keyHolder':  _keyHolderCtrl.text.trim(),
+        'keyHolder': _keyHolder ?? '',
         'keyCode':    _keyCode    ?? '',
         'date':       _selectedDate.toIso8601String(),
       });
@@ -105,7 +118,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
           'unit':       _unitCtrl.text.trim(),
           'keyType':    e.keyType ?? '',
           'unitStatus': _unitStatus ?? '',
-          'keyHolder':  _keyHolderCtrl.text.trim(),
+          'keyHolder': _keyHolder ?? '',
           'keyCode':    _keyCode ?? '',
           'date':       _selectedDate.toIso8601String(),
         });
@@ -116,7 +129,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+        SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -177,7 +190,7 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2EADF),
+                      color: const Color(AppConstants.modalBgValue),
                       borderRadius: BorderRadius.circular(SU.radiusLg),
                     ),
                     child: Form(
@@ -228,13 +241,14 @@ class _AddKeyScreenState extends State<AddKeyScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          _KField(
-                            controller: _keyHolderCtrl,
-                            hint: 'Key Holder',
-                            icon: Icons.people_outline,
-                            validator: (v) =>
-                                (v == null || v.isEmpty) ? 'Required' : null,
-                          ),
+_KDropdown(
+  value:     _keyHolder,
+  hint:      'Staff Key Holder',
+  icon:      Icons.people_outline,
+  items:     _keyHolderOptions,
+  onChanged: (v) => setState(() => _keyHolder = v),
+  validator: (v) => v == null ? 'Required' : null,
+),
                           const SizedBox(height: 10),
 
                           _KDropdown(
@@ -371,7 +385,7 @@ class _ExtraKeyCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(AppConstants.lightOrangeValue),
+        color: const Color(AppConstants.modalBgValue),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Form(
@@ -549,7 +563,7 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
     prefixIcon: icon != null ? Icon(icon, color: Colors.black38, size: 18) : null,
     filled:    true,
-    fillColor: const Color(AppConstants.backgroundColorValue),
+    fillColor: Colors.white,
     contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -566,11 +580,11 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.red.shade400),
+      borderSide: BorderSide(color: const Color(AppConstants.errorColorValue)),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
+      borderSide: BorderSide(color: const Color(AppConstants.errorColorValue), width: 1.5),
     ),
   );
 }

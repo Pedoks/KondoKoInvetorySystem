@@ -3,8 +3,8 @@ import '../utils/constants.dart';
 import '../utils/screen_util.dart';
 
 // ── Palette (matches KeyDashboard modal) ─────────────────
-const _kModalBg     = Color(0xFFF2EADF);
-const _kModalCardBg = Color(0xFFE8DDD0);
+const _kModalBg     = Color(AppConstants.modalBgValue);
+const _kModalCardBg = Color(AppConstants.modalCardBgValue);
 
 enum KondoConfirmType { save, delete }
 
@@ -76,7 +76,7 @@ class ConfirmDialog extends StatelessWidget {
       case KondoConfirmType.save:
         return const Color(AppConstants.primaryColorValue);
       case KondoConfirmType.delete:
-        return Colors.red.shade500;
+        return const Color(AppConstants.errorColorValue);
     }
   }
 

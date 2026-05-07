@@ -3,6 +3,7 @@ class KeyTransactionModel {
   final String    keyId;
   final String    barcode;
   final String    unit;
+  final String keyType;
   final String    userId;
   final String    userName;
   final DateTime  checkOutDate;
@@ -14,6 +15,7 @@ class KeyTransactionModel {
     required this.keyId,
     required this.barcode,
     required this.unit,
+    required this.keyType,
     required this.userId,
     required this.userName,
     required this.checkOutDate,
@@ -29,6 +31,7 @@ class KeyTransactionModel {
       keyId:        json['keyId']        as String,
       barcode:      json['barcode']      as String,
       unit:         json['unit']         as String,
+      keyType: json['keyType'] as String? ?? '',
       userId:       json['userId']       as String,
       userName:     json['userName']     as String,
       checkOutDate: DateTime.parse(json['checkOutDate'] as String),

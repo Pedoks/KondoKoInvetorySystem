@@ -4,6 +4,8 @@ import '../utils/constants.dart';
 import '../utils/screen_util.dart';
 import '../utils/uom_helper.dart';
 import '../widgets/kondo_app_bar.dart';
+import '../widgets/export_bottom_sheet.dart';                  
+import '../utils/export_helper.dart' as helper;              
 import '../models/item_model.dart';
 import '../services/item_service.dart';
 import '../widgets/confirm_dialog.dart';
@@ -12,8 +14,8 @@ import 'issued_items_screen.dart';
 import 'stock_inout_screen.dart';
 
 // ── Palette (matches KeyDashboard modal) ─────────────────
-const _kModalBg     = Color(0xFFF2EADF);
-const _kModalCardBg = Color(0xFFE8DDD0);
+const _kModalBg     = Color(AppConstants.modalBgValue);
+const _kModalCardBg = Color(AppConstants.modalCardBgValue);
 const _kFieldBg     = Colors.white;
 const _kBorderColor = Colors.black38;
 
@@ -29,7 +31,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
   late final ItemService _itemService;
   List<ItemModel> _allItems      = [];
   List<ItemModel> _filteredItems = [];
-  bool _isLoading = true;
+  bool _isLoading   = true;
+  bool _isExporting = false;    // ← NEW
 
   @override
   void initState() {
@@ -51,7 +54,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content:         Text('Error: $e'),
           backgroundColor: Colors.red.shade600,
         ));
       }
@@ -69,7 +72,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
 
   void _showViewModal(ItemModel item) {
     showDialog(
-      context: context,
+      context:      context,
       barrierColor: Colors.black.withOpacity(0.4),
       builder: (_) => _ItemViewModal(
         item:        item,
@@ -88,13 +91,95 @@ class _ItemsScreenState extends State<ItemsScreen> {
     if (result == true) _loadItems();
   }
 
+  // ── NEW: Export handler ──────────────────────────────
+  Future<void> _handleExport() async {
+    if (_allItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items to export.')),
+      );
+      return;
+    }
+
+    final result = await ExportBottomSheet.show(context);
+    if (result == null || !mounted) return;
+
+    // ── Date-range filter (Option A — filters by item.date) ──
+    final cutoff = result.range.cutoff;
+
+    List<ItemModel> toExport = cutoff == null
+        ? _allItems
+        : _allItems.where((i) => i.date.isAfter(cutoff)).toList();
+
+    if (toExport.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'No items found for ${result.range.label}.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isExporting = true);
+    try {
+      if (result.isExcel) {
+        await helper.ExportHelper.exportItemsToExcel(
+          context, toExport,
+          download: result.isDownload,
+        );
+      } else {
+        await helper.ExportHelper.exportItemsToPdf(
+          context, toExport,
+          download: result.isDownload,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:         Text('Export failed: $e'),
+          backgroundColor: Colors.red.shade600,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+  // ── END NEW ──────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     SU.init(context);
 
     return Column(
       children: [
-        KondoAppBar(title: 'Items'),
+        // ── App bar with export button ─────────────────
+        KondoAppBar(
+          title:        'Items',
+          showBack:     false,
+          showLogo:     true,
+          showSettings: false,
+          actions: [                                         
+            if (_isExporting)
+              Padding(
+                padding: EdgeInsets.only(right: SU.md),
+                child: SizedBox(
+                  width:  SU.iconSm,
+                  height: SU.iconSm,
+                  child: const CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2),
+                ),
+              )
+            else
+              IconButton(
+                onPressed: _handleExport,
+                icon: Icon(Icons.upload_file,
+                    color: Colors.white, size: SU.iconMd),
+                tooltip: 'Export',
+              ),
+          ],
+        ),
+
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.all(SU.md),
@@ -150,9 +235,10 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 28, height: 28,
+                      width:  28,
+                      height: 28,
                       decoration: BoxDecoration(
-                        color: const Color(AppConstants.primaryColorValue),
+                        color:        const Color(AppConstants.primaryColorValue),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.inventory_2,
@@ -169,7 +255,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                     ),
                     const Spacer(),
                     SizedBox(
-                      width: SU.wp(0.38),
+                      width:  SU.wp(0.38),
                       height: 38,
                       child: TextField(
                         onChanged: _onSearch,
@@ -178,11 +264,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
                           prefixIcon: Icon(Icons.search,
                               size: SU.iconSm, color: Colors.black45),
                           filled:    true,
-                          fillColor:
-                              const Color(AppConstants.lightOrangeValue),
+                          fillColor: const Color(
+                              AppConstants.lightOrangeValue),
                           contentPadding: EdgeInsets.zero,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius:
+                                BorderRadius.circular(20),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -199,7 +286,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         child: Padding(
                           padding: EdgeInsets.all(SU.xl),
                           child: const CircularProgressIndicator(
-                            color: Color(AppConstants.primaryColorValue),
+                            color: Color(
+                                AppConstants.primaryColorValue),
                           ),
                         ),
                       )
@@ -246,7 +334,7 @@ class _ActionCard extends StatelessWidget {
       child: Container(
         height: SU.actionCardH,
         decoration: BoxDecoration(
-          color: const Color(AppConstants.lightOrangeValue),
+          color:        const Color(AppConstants.lightOrangeValue),
           borderRadius: BorderRadius.circular(SU.radiusLg),
         ),
         child: Column(
@@ -282,7 +370,7 @@ class _ItemTable extends StatelessWidget {
     SU.init(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(AppConstants.lightOrangeValue),
+        color:        const Color(AppConstants.lightOrangeValue),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -402,7 +490,8 @@ class _ItemTableRow extends StatelessWidget {
           ),
           Expanded(
             flex: 3,
-            child: Center(child: _StatusBadge(status: item.stockStatus)),
+            child: Center(
+                child: _StatusBadge(status: item.stockStatus)),
           ),
           Expanded(
             flex: 2,
@@ -413,7 +502,8 @@ class _ItemTableRow extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: SU.sm, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(AppConstants.successColorValue),
+                    color: const Color(
+                        AppConstants.successColorValue),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('View',
@@ -435,9 +525,10 @@ class _PlaceholderThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 30, height: 30,
+      width:  30,
+      height: 30,
       decoration: BoxDecoration(
-        color: const Color(AppConstants.lightOrangeValue),
+        color:        const Color(AppConstants.lightOrangeValue),
         borderRadius: BorderRadius.circular(6),
       ),
       child: const Icon(Icons.inventory_2_outlined,
@@ -474,7 +565,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: SU.sm, vertical: 3),
       decoration: BoxDecoration(
-        color: color,
+        color:        color,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(label,
@@ -487,7 +578,8 @@ class _StatusBadge extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════
-//  ITEM VIEW MODAL  (redesigned — matches KeyDashboard)
+//  ITEM VIEW MODAL
+//  (completely unchanged from original — backend untouched)
 // ═══════════════════════════════════════════════════════
 class _ItemViewModal extends StatefulWidget {
   final ItemModel    item;
@@ -511,25 +603,24 @@ class _ItemViewModalState extends State<_ItemViewModal> {
   bool _isSaving   = false;
   bool _isDeleting = false;
 
-  // Text controllers
   late final TextEditingController _nameCtrl;
   late final TextEditingController _barcodeCtrl;
   late final TextEditingController _descriptionCtrl;
 
-  // Editable numeric values (in preferredUnit)
   late double _quantity;
   late double _minStock;
   late double _maxStock;
 
-  // Dropdown values
   String? _unitType;
   String? _preferredUnit;
   late DateTime _selectedDate;
 
   static String _fmtVal(double v) =>
-      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+      v == v.truncateToDouble()
+          ? v.toInt().toString()
+          : v.toStringAsFixed(1);
 
-  static const List<String> _unitTypeOptions    = ['Liquid', 'Solid', 'Count'];
+  static const List<String> _unitTypeOptions = ['Liquid', 'Solid', 'Count'];
 
   List<String> get _preferredUnitOptions =>
       UOM.unitsFor(_unitType ?? widget.item.unitType);
@@ -537,16 +628,16 @@ class _ItemViewModalState extends State<_ItemViewModal> {
   @override
   void initState() {
     super.initState();
-    final item        = widget.item;
-    _nameCtrl         = TextEditingController(text: item.itemName);
-    _barcodeCtrl      = TextEditingController(text: item.barcode);
-    _descriptionCtrl  = TextEditingController(text: item.description);
-    _quantity         = item.quantityInPreferred;
-    _minStock         = item.minStockInPreferred;
-    _maxStock         = item.maxStockInPreferred;
-    _unitType         = item.unitType.isNotEmpty ? item.unitType : null;
-    _preferredUnit    = item.preferredUnit;
-    _selectedDate     = item.date;
+    final item       = widget.item;
+    _nameCtrl        = TextEditingController(text: item.itemName);
+    _barcodeCtrl     = TextEditingController(text: item.barcode);
+    _descriptionCtrl = TextEditingController(text: item.description);
+    _quantity        = item.quantityInPreferred;
+    _minStock        = item.minStockInPreferred;
+    _maxStock        = item.maxStockInPreferred;
+    _unitType        = item.unitType.isNotEmpty ? item.unitType : null;
+    _preferredUnit   = item.preferredUnit;
+    _selectedDate    = item.date;
   }
 
   @override
@@ -557,7 +648,6 @@ class _ItemViewModalState extends State<_ItemViewModal> {
     super.dispose();
   }
 
-  // ── Save ──────────────────────────────────────────────
   Future<void> _onSaveTap() async {
     final confirmed = await ConfirmDialog.showSave(context);
     if (!confirmed) return;
@@ -567,29 +657,32 @@ class _ItemViewModalState extends State<_ItemViewModal> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
-      final pUnit  = _preferredUnit ?? widget.item.preferredUnit;
-      final cf     = widget.item.conversionFactor;
+      final pUnit = _preferredUnit ?? widget.item.preferredUnit;
+      final cf    = widget.item.conversionFactor;
 
       await widget.itemService.updateItem(widget.item.id, {
         'barcode':          _barcodeCtrl.text.trim(),
         'itemName':         _nameCtrl.text.trim(),
         'itemType':         widget.item.itemType,
-        'unitType':         _unitType         ?? widget.item.unitType,
+        'unitType':         _unitType ?? widget.item.unitType,
         'baseUnit':         widget.item.baseUnit,
         'preferredUnit':    pUnit,
         'conversionFactor': cf,
-        'quantity': UOM.toBase(_quantity,  pUnit, conversionFactor: cf),
-        'minStock': UOM.toBase(_minStock,  pUnit, conversionFactor: cf),
-        'maxStock': UOM.toBase(_maxStock,  pUnit, conversionFactor: cf),
+        'quantity': UOM.toBase(_quantity, pUnit, conversionFactor: cf),
+        'minStock': UOM.toBase(_minStock, pUnit, conversionFactor: cf),
+        'maxStock': UOM.toBase(_maxStock, pUnit, conversionFactor: cf),
         'description': _descriptionCtrl.text.trim(),
         'imageUrl':    widget.item.imageUrl,
         'date':        _selectedDate.toIso8601String(),
       });
       widget.onUpdated();
       if (mounted) {
-        setState(() { _isEditing = false; _isSaving = false; });
+        setState(() {
+          _isEditing = false;
+          _isSaving  = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Item updated successfully!'),
+          content:         Text('Item updated successfully!'),
           backgroundColor: Color(AppConstants.successColorValue),
         ));
       }
@@ -597,18 +690,17 @@ class _ItemViewModalState extends State<_ItemViewModal> {
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'),
+            content:         Text('Error: $e'),
             backgroundColor: Colors.red.shade600));
       }
     }
   }
 
-  // ── Delete ─────────────────────────────────────────────
   Future<void> _onDeleteTap() async {
     final confirmed = await ConfirmDialog.showDelete(
       context,
-      message: 'Are you sure you want to delete "${widget.item.itemName}"?'
-               ' This action cannot be undone.',
+      message: 'Are you sure you want to delete '
+               '"${widget.item.itemName}"? This action cannot be undone.',
     );
     if (!confirmed) return;
     _delete();
@@ -624,7 +716,7 @@ class _ItemViewModalState extends State<_ItemViewModal> {
       setState(() => _isDeleting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'),
+            content:         Text('Error: $e'),
             backgroundColor: Colors.red.shade600));
       }
     }
@@ -651,8 +743,8 @@ class _ItemViewModalState extends State<_ItemViewModal> {
   @override
   Widget build(BuildContext context) {
     SU.init(context);
-    final size          = MediaQuery.of(context).size;
-    final isConsumable  = widget.item.itemType == 'Consumable';
+    final size         = MediaQuery.of(context).size;
+    final isConsumable = widget.item.itemType == 'Consumable';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -664,7 +756,7 @@ class _ItemViewModalState extends State<_ItemViewModal> {
         width: size.width * 0.95,
         constraints: BoxConstraints(maxHeight: size.height * 0.9),
         decoration: BoxDecoration(
-          color: _kModalBg,
+          color:        _kModalBg,
           borderRadius: BorderRadius.circular(SU.radiusXl),
           boxShadow: [
             BoxShadow(
@@ -677,43 +769,47 @@ class _ItemViewModalState extends State<_ItemViewModal> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Header ────────────────────────────────
+            // ── Header ──────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               decoration: BoxDecoration(
                 color: _kModalCardBg,
                 borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(SU.radiusXl),
-                ),
+                    top: Radius.circular(SU.radiusXl)),
               ),
               child: Row(
                 children: [
                   Flexible(
                     child: Wrap(
-                      spacing: 8,
+                      spacing:    8,
                       runSpacing: 8,
                       children: [
                         if (_isEditing) ...[
                           _ModalBtn(
                             label: _isSaving ? '...' : 'Save',
-                            color: const Color(AppConstants.primaryColorValue),
+                            color: const Color(
+                                AppConstants.primaryColorValue),
                             onTap: _isSaving ? null : _onSaveTap,
                           ),
                           _ModalBtn(
                             label: _isDeleting ? '...' : 'Delete',
                             color: Colors.red.shade500,
-                            onTap: _isDeleting ? null : _onDeleteTap,
+                            onTap:
+                                _isDeleting ? null : _onDeleteTap,
                           ),
                           _ModalBtn(
                             label: 'Cancel',
                             color: Colors.grey.shade600,
-                            onTap: () => setState(() => _isEditing = false),
+                            onTap: () =>
+                                setState(() => _isEditing = false),
                           ),
                         ] else ...[
                           _ModalBtn(
                             label: 'Edit',
-                            color: const Color(AppConstants.primaryColorValue),
-                            onTap: () => setState(() => _isEditing = true),
+                            color: const Color(
+                                AppConstants.primaryColorValue),
+                            onTap: () =>
+                                setState(() => _isEditing = true),
                           ),
                         ],
                       ],
@@ -735,17 +831,16 @@ class _ItemViewModalState extends State<_ItemViewModal> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ── Item summary card ──────────────
+                    // Item summary card
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: _kModalCardBg,
+                        color:        _kModalCardBg,
                         borderRadius: BorderRadius.circular(SU.radius),
                         border: Border.all(color: Colors.black12),
                       ),
                       child: Row(
                         children: [
-                          // Thumbnail
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: widget.item.imageUrl.isNotEmpty
@@ -753,15 +848,17 @@ class _ItemViewModalState extends State<_ItemViewModal> {
                                     widget.item.imageUrl,
                                     width: 56, height: 56,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        _SummaryThumb(),
+                                    errorBuilder:
+                                        (_, __, ___) =>
+                                            _SummaryThumb(),
                                   )
                                 : _SummaryThumb(),
                           ),
                           SizedBox(width: SU.sm),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   widget.item.itemName,
@@ -776,105 +873,121 @@ class _ItemViewModalState extends State<_ItemViewModal> {
                                 Text(
                                   widget.item.itemType,
                                   style: const TextStyle(
-                                      fontSize: 12, color: Colors.black54),
+                                      fontSize: 12,
+                                      color: Colors.black54),
                                 ),
                               ],
                             ),
                           ),
-                          _StatusBadge(status: widget.item.stockStatus),
+                          _StatusBadge(
+                              status: widget.item.stockStatus),
                         ],
                       ),
                     ),
 
                     SizedBox(height: SU.md),
 
-                    // ── Item Name + Barcode ────────────
+                    // Item Name + Barcode
                     _ModalRow(
                       leftLabel:  'Item Name',
                       rightLabel: isConsumable ? '' : 'Barcode',
                       leftChild: _isEditing
                           ? _ModalTextField(controller: _nameCtrl)
-                          : _ModalReadOnly(text: widget.item.itemName),
+                          : _ModalReadOnly(
+                              text: widget.item.itemName),
                       rightChild: isConsumable
                           ? const SizedBox.shrink()
                           : _ModalReadOnly(
                               text: _barcodeCtrl.text.isEmpty
-                                  ? '—' : _barcodeCtrl.text),
+                                  ? '—'
+                                  : _barcodeCtrl.text),
                     ),
 
                     if (isConsumable) ...[
                       SizedBox(height: SU.sm),
 
-                      // ── Unit Type + Preferred Unit ───
+                      // Unit Type + Preferred Unit
                       _ModalRow(
                         leftLabel:  'Unit Type',
                         rightLabel: 'Preferred Unit',
                         leftChild: _isEditing
                             ? _ModalDropdownField(
-                                value:     _unitType,
-                                items:     _unitTypeOptions,
+                                value: _unitType,
+                                items: _unitTypeOptions,
                                 onChanged: (v) => setState(() {
-                                  _unitType      = v;
-                                  // reset preferred if no longer valid
-                                  final newUnits = UOM.unitsFor(v ?? 'Count');
-                                  if (!newUnits.contains(_preferredUnit)) {
+                                  _unitType = v;
+                                  final newUnits =
+                                      UOM.unitsFor(v ?? 'Count');
+                                  if (!newUnits
+                                      .contains(_preferredUnit)) {
                                     _preferredUnit = newUnits.first;
                                   }
                                 }),
                               )
                             : _ModalReadOnly(
                                 text: widget.item.unitType.isNotEmpty
-                                    ? widget.item.unitType : '—'),
+                                    ? widget.item.unitType
+                                    : '—'),
                         rightChild: _isEditing
                             ? _ModalDropdownField(
-                                value:     _preferredUnit,
-                                items:     _preferredUnitOptions,
-                                onChanged: (v) =>
-                                    setState(() => _preferredUnit = v),
+                                value: _preferredUnit,
+                                items: _preferredUnitOptions,
+                                onChanged: (v) => setState(
+                                    () => _preferredUnit = v),
                               )
-                            : _ModalReadOnly(text: widget.item.preferredUnit),
+                            : _ModalReadOnly(
+                                text: widget.item.preferredUnit),
                       ),
 
                       SizedBox(height: SU.sm),
 
-                      // ── Quantity ───────────────────────
-                      _ModalLabel('Quantity (${_preferredUnit ?? widget.item.preferredUnit})'),
+                      // Quantity
+                      _ModalLabel(
+                          'Quantity (${_preferredUnit ?? widget.item.preferredUnit})'),
                       SizedBox(height: SU.xs),
                       _isEditing
                           ? _StepperField(
-                              value:     _quantity,
-                              step:      1,
-                              min:       0,
-                              onChanged: (v) => setState(() => _quantity = v),
+                              value: _quantity,
+                              step:  1,
+                              min:   0,
+                              onChanged: (v) =>
+                                  setState(() => _quantity = v),
                             )
-                          : _ModalReadOnly(text: _fmtVal(_quantity)),
+                          : _ModalReadOnly(
+                              text: _fmtVal(_quantity)),
 
                       SizedBox(height: SU.sm),
 
-                      // ── Min / Max Stock ────────────────
+                      // Min / Max Stock
                       _ModalRow(
-                        leftLabel:  'Min Stock (${_preferredUnit ?? widget.item.preferredUnit})',
-                        rightLabel: 'Max Stock (${_preferredUnit ?? widget.item.preferredUnit})',
+                        leftLabel:
+                            'Min Stock (${_preferredUnit ?? widget.item.preferredUnit})',
+                        rightLabel:
+                            'Max Stock (${_preferredUnit ?? widget.item.preferredUnit})',
                         leftChild: _isEditing
                             ? _StepperField(
-                                value:     _minStock,
-                                step:      1,
-                                min:       0,
-                                onChanged: (v) => setState(() => _minStock = v),
+                                value: _minStock,
+                                step:  1,
+                                min:   0,
+                                onChanged: (v) =>
+                                    setState(() => _minStock = v),
                               )
-                            : _ModalReadOnly(text: _fmtVal(_minStock)),
+                            : _ModalReadOnly(
+                                text: _fmtVal(_minStock)),
                         rightChild: _isEditing
                             ? _StepperField(
-                                value:     _maxStock,
-                                step:      1,
-                                min:       0,
-                                onChanged: (v) => setState(() => _maxStock = v),
+                                value: _maxStock,
+                                step:  1,
+                                min:   0,
+                                onChanged: (v) =>
+                                    setState(() => _maxStock = v),
                               )
-                            : _ModalReadOnly(text: _fmtVal(_maxStock)),
+                            : _ModalReadOnly(
+                                text: _fmtVal(_maxStock)),
                       ),
                     ],
 
-                    // ── NonConsumable: Description ───────
+                    // NonConsumable: Description
                     if (!isConsumable) ...[
                       SizedBox(height: SU.sm),
                       _ModalLabel('Description'),
@@ -885,21 +998,23 @@ class _ItemViewModalState extends State<_ItemViewModal> {
                               maxLines:   4,
                             )
                           : _ModalReadOnly(
-                              text:     _descriptionCtrl.text.isNotEmpty
-                                  ? _descriptionCtrl.text : '—',
+                              text: _descriptionCtrl.text.isNotEmpty
+                                  ? _descriptionCtrl.text
+                                  : '—',
                               maxLines: 4,
                             ),
                     ],
 
                     SizedBox(height: SU.sm),
 
-                    // ── Date ──────────────────────────────
+                    // Date
                     _ModalLabel('Date'),
                     SizedBox(height: SU.xs),
                     GestureDetector(
                       onTap: _pickDate,
                       child: _ModalReadOnly(
-                        text:      DateFormat('yyyy-MM-dd').format(_selectedDate),
+                        text: DateFormat('yyyy-MM-dd')
+                            .format(_selectedDate),
                         isEditing: _isEditing,
                       ),
                     ),
@@ -921,7 +1036,8 @@ class _SummaryThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 56, height: 56,
+      width:  56,
+      height: 56,
       decoration: BoxDecoration(
         color: const Color(AppConstants.backgroundColorValue),
         borderRadius: BorderRadius.circular(10),
@@ -934,9 +1050,9 @@ class _SummaryThumb extends StatelessWidget {
 
 // ── Stepper Field ──────────────────────────────────────
 class _StepperField extends StatelessWidget {
-  final double   value;
-  final double   step;
-  final double   min;
+  final double                value;
+  final double                step;
+  final double                min;
   final void Function(double) onChanged;
 
   const _StepperField({
@@ -946,8 +1062,9 @@ class _StepperField extends StatelessWidget {
     required this.onChanged,
   });
 
-  String _fmt(double v) =>
-      v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+  String _fmt(double v) => v == v.truncateToDouble()
+      ? v.toInt().toString()
+      : v.toStringAsFixed(1);
 
   @override
   Widget build(BuildContext context) {
@@ -961,13 +1078,13 @@ class _StepperField extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Decrement
           GestureDetector(
             onTap: () {
               if (value - step >= min) onChanged(value - step);
             },
             child: Container(
-              width: 44, height: 44,
+              width:  44,
+              height: 44,
               decoration: const BoxDecoration(
                 color: Color(0xFFE8DDD0),
                 borderRadius: BorderRadius.only(
@@ -975,10 +1092,10 @@ class _StepperField extends StatelessWidget {
                   bottomLeft: Radius.circular(12),
                 ),
               ),
-              child: const Icon(Icons.remove, size: 18, color: Colors.black54),
+              child: const Icon(Icons.remove,
+                  size: 18, color: Colors.black54),
             ),
           ),
-          // Value
           Expanded(
             child: Center(
               child: Text(
@@ -991,11 +1108,11 @@ class _StepperField extends StatelessWidget {
               ),
             ),
           ),
-          // Increment
           GestureDetector(
             onTap: () => onChanged(value + step),
             child: Container(
-              width: 44, height: 44,
+              width:  44,
+              height: 44,
               decoration: BoxDecoration(
                 color: const Color(AppConstants.primaryColorValue),
                 borderRadius: const BorderRadius.only(
@@ -1003,7 +1120,8 @@ class _StepperField extends StatelessWidget {
                   bottomRight: Radius.circular(12),
                 ),
               ),
-              child: const Icon(Icons.add, size: 18, color: Colors.white),
+              child: const Icon(Icons.add,
+                  size: 18, color: Colors.white),
             ),
           ),
         ],
@@ -1054,10 +1172,12 @@ class _ModalLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(
-        fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87),
-  );
+        text,
+        style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize:   13,
+            color:      Colors.black87),
+      );
 }
 
 class _ModalBtn extends StatelessWidget {
@@ -1065,14 +1185,16 @@ class _ModalBtn extends StatelessWidget {
   final Color         color;
   final VoidCallback? onTap;
 
-  const _ModalBtn({required this.label, required this.color, this.onTap});
+  const _ModalBtn(
+      {required this.label, required this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: onTap != null ? color : Colors.grey.shade300,
           borderRadius: BorderRadius.circular(20),
@@ -1093,14 +1215,15 @@ class _ModalTextField extends StatelessWidget {
   final TextEditingController controller;
   final int                   maxLines;
 
-  const _ModalTextField({required this.controller, this.maxLines = 1});
+  const _ModalTextField(
+      {required this.controller, this.maxLines = 1});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
-      controller:   controller,
-      textAlign:    TextAlign.center,
-      maxLines:     maxLines,
+      controller: controller,
+      textAlign:  TextAlign.center,
+      maxLines:   maxLines,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         filled:    true,
@@ -1118,7 +1241,8 @@ class _ModalTextField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
-              color: Color(AppConstants.primaryColorValue), width: 1.5),
+              color: Color(AppConstants.primaryColorValue),
+              width: 1.5),
         ),
       ),
     );
@@ -1158,7 +1282,8 @@ class _ModalDropdownField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
-              color: Color(AppConstants.primaryColorValue), width: 1.5),
+              color: Color(AppConstants.primaryColorValue),
+              width: 1.5),
         ),
       ),
       icon: const Icon(Icons.keyboard_arrow_down_rounded,
@@ -1167,7 +1292,8 @@ class _ModalDropdownField extends StatelessWidget {
       items: items
           .map((e) => DropdownMenuItem(
               value: e,
-              child: Text(e, style: const TextStyle(fontSize: 12))))
+              child:
+                  Text(e, style: const TextStyle(fontSize: 12))))
           .toList(),
     );
   }
@@ -1188,7 +1314,8 @@ class _ModalReadOnly extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+          vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
         color: _kFieldBg,
         borderRadius: BorderRadius.circular(12),

@@ -1,5 +1,3 @@
-// KondoKoInventorySystem_Backend/Services/KeysService.cs
-
 using KondoKoInventorySystem_Backend.Data;
 using KondoKoInventorySystem_Backend.DTOs;
 using KondoKoInventorySystem_Backend.Models;

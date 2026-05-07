@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import '../utils/screen_util.dart';
 
 // ── Export time range options ──────────────────────────
 enum ExportDateRange {
@@ -40,9 +41,14 @@ extension ExportDateRangeExt on ExportDateRange {
 // ── Result returned from the sheet ────────────────────
 class ExportSheetResult {
   final ExportDateRange range;
-  final bool isExcel; // true = Excel, false = PDF
+  final bool isExcel;      // true = Excel, false = PDF
+  final bool isDownload;   // true = save to Downloads, false = share
 
-  const ExportSheetResult({required this.range, required this.isExcel});
+  const ExportSheetResult({
+    required this.range,
+    required this.isExcel,
+    this.isDownload = false,
+  });
 }
 
 // ── Bottom Sheet ───────────────────────────────────────
@@ -64,12 +70,16 @@ class ExportBottomSheet extends StatefulWidget {
 }
 
 class _ExportBottomSheetState extends State<ExportBottomSheet> {
-  ExportDateRange _selected = ExportDateRange.allTime;
+  ExportDateRange _selected    = ExportDateRange.allTime;
+  bool            _isExcel     = true;   // which format is selected before download
+  bool            _showFormats = false;  // show format picker for download
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+      padding: EdgeInsets.fromLTRB(SU.md, SU.md, SU.md, SU.md + 16),
       decoration: const BoxDecoration(
         color: Color(AppConstants.backgroundColorValue),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -78,12 +88,12 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Handle ──────────────────────────────
+          // ── Handle ──────────────────────────────────
           Center(
             child: Container(
               width: 40,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
+              margin: EdgeInsets.only(bottom: SU.md),
               decoration: BoxDecoration(
                 color: Colors.black26,
                 borderRadius: BorderRadius.circular(2),
@@ -91,55 +101,57 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
             ),
           ),
 
-          // ── Title ───────────────────────────────
-          const Center(
+          // ── Title ────────────────────────────────────
+          Center(
             child: Text(
               'Export Data',
               style: TextStyle(
-                fontSize: 18,
+                fontSize:   SU.textLg,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color:      Colors.black87,
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          const Center(
+          SizedBox(height: SU.xs),
+          Center(
             child: Text(
               'Select a time range then choose format',
-              style: TextStyle(fontSize: 13, color: Colors.black45),
+              style: TextStyle(fontSize: SU.textSm, color: Colors.black45),
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: SU.md),
 
-          // ── Time Range Label ─────────────────────
-          const Text(
+          // ── Time Range Label ─────────────────────────
+          Text(
             'Time Range',
             style: TextStyle(
-              fontSize: 13,
+              fontSize:   SU.textSm,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color:      Colors.black87,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: SU.xs),
 
-          // ── Range Chips ──────────────────────────
+          // ── Range Chips ──────────────────────────────
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing:    SU.xs,
+            runSpacing: SU.xs,
             children: ExportDateRange.values.map((range) {
               final isActive = _selected == range;
               return GestureDetector(
                 onTap: () => setState(() => _selected = range),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: SU.sm,
+                    vertical:   SU.xs,
+                  ),
                   decoration: BoxDecoration(
                     color: isActive
                         ? const Color(AppConstants.primaryColorValue)
                         : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(SU.radiusLg),
                     border: Border.all(
                       color: isActive
                           ? const Color(AppConstants.primaryColorValue)
@@ -149,9 +161,9 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
                   child: Text(
                     range.label,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize:   SU.textSm,
                       fontWeight: FontWeight.w600,
-                      color: isActive ? Colors.white : Colors.black54,
+                      color:      isActive ? Colors.white : Colors.black54,
                     ),
                   ),
                 ),
@@ -159,73 +171,234 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
             }).toList(),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: SU.xs),
 
-          // ── Range hint text ──────────────────────
+          // ── Range hint text ──────────────────────────
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: _selected.cutoff != null
                 ? Padding(
                     key: ValueKey(_selected),
-                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                    padding: EdgeInsets.symmetric(vertical: SU.xs * 0.5),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline,
-                            size: 14, color: Colors.black38),
-                        const SizedBox(width: 6),
+                        Icon(Icons.info_outline,
+                            size: SU.textSm, color: Colors.black38),
+                        SizedBox(width: SU.xs),
                         Text(
-                          'Includes records from the last ${_selected.label.toLowerCase()}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black38),
+                          'Includes records from the last '
+                          '${_selected.label.toLowerCase()}',
+                          style: TextStyle(
+                              fontSize: SU.textXs, color: Colors.black38),
                         ),
                       ],
                     ),
                   )
-                : const SizedBox(key: ValueKey('all'), height: 8),
+                : SizedBox(key: const ValueKey('all'), height: SU.xs),
           ),
 
-          const SizedBox(height: 16),
-          const Divider(color: Colors.black12),
-          const SizedBox(height: 16),
+          SizedBox(height: SU.sm),
+          Divider(color: Colors.black12, height: SU.xs),
+          SizedBox(height: SU.sm),
 
-          // ── Format Label ─────────────────────────
-          const Text(
-            'Format',
+          // ── Format Label ─────────────────────────────
+          Text(
+            'Format & Action',
             style: TextStyle(
-              fontSize: 13,
+              fontSize:   SU.textSm,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color:      Colors.black87,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: SU.sm),
 
-          // ── Excel tile ───────────────────────────
+          // ── Excel — Share tile ────────────────────────
           _ExportOptionTile(
             icon:      Icons.table_chart_outlined,
             iconColor: const Color(0xFF1D6F42),
             iconBg:    const Color(0xFFE8F5E9),
-            label:     'Export as Excel',
+            label:     'Share as Excel',
             subtitle:  'Best for sorting & filtering data',
             onTap: () => Navigator.pop(
               context,
-              ExportSheetResult(range: _selected, isExcel: true),
+              ExportSheetResult(
+                range:      _selected,
+                isExcel:    true,
+                isDownload: false,
+              ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: SU.sm),
 
-          // ── PDF tile ─────────────────────────────
+          // ── PDF — Share tile ──────────────────────────
           _ExportOptionTile(
             icon:      Icons.picture_as_pdf_outlined,
             iconColor: const Color(0xFFD32F2F),
             iconBg:    const Color(0xFFFFEBEE),
-            label:     'Export as PDF',
+            label:     'Share as PDF',
             subtitle:  'Best for printing & sharing',
             onTap: () => Navigator.pop(
               context,
-              ExportSheetResult(range: _selected, isExcel: false),
+              ExportSheetResult(
+                range:      _selected,
+                isExcel:    false,
+                isDownload: false,
+              ),
             ),
           ),
+
+          SizedBox(height: SU.sm),
+
+          // ── Download to Device tile ───────────────────
+          if (!_showFormats)
+            _ExportOptionTile(
+              icon:      Icons.download_outlined,
+              iconColor: const Color(0xFF1565C0),
+              iconBg:    const Color(0xFFE3F2FD),
+              label:     'Download to Device',
+              subtitle:  'Saves to Downloads folder',
+              onTap:     () => setState(() => _showFormats = true),
+            ),
+
+          // ── Format picker for download ─────────────────
+          if (_showFormats) ...[
+            Container(
+              padding: EdgeInsets.all(SU.sm),
+              decoration: BoxDecoration(
+                color:        const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(SU.radiusLg),
+                border:       Border.all(color: const Color(0xFF1565C0).withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width:  SU.wp(0.10),
+                        height: SU.wp(0.10),
+                        decoration: BoxDecoration(
+                          color:        const Color(0xFF1565C0),
+                          borderRadius: BorderRadius.circular(SU.radius),
+                        ),
+                        child: Icon(Icons.download_outlined,
+                            color: Colors.white, size: SU.iconSm),
+                      ),
+                      SizedBox(width: SU.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Download to Device',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize:   SU.textSm,
+                                color:      Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'Choose format to save to Downloads',
+                              style: TextStyle(
+                                  fontSize: SU.textXs, color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _showFormats = false),
+                        child: Icon(Icons.close,
+                            size: SU.iconSm, color: Colors.black45),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: SU.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(
+                            context,
+                            ExportSheetResult(
+                              range:      _selected,
+                              isExcel:    true,
+                              isDownload: true,
+                            ),
+                          ),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical:   SU.sm,
+                              horizontal: SU.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color:        const Color(0xFF1D6F42),
+                              borderRadius: BorderRadius.circular(SU.radiusLg),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.table_chart_outlined,
+                                    color: Colors.white, size: SU.iconSm),
+                                SizedBox(width: SU.xs),
+                                Text(
+                                  'Excel',
+                                  style: TextStyle(
+                                    color:      Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize:   SU.textSm,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: SU.sm),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(
+                            context,
+                            ExportSheetResult(
+                              range:      _selected,
+                              isExcel:    false,
+                              isDownload: true,
+                            ),
+                          ),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical:   SU.sm,
+                              horizontal: SU.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color:        const Color(0xFFD32F2F),
+                              borderRadius: BorderRadius.circular(SU.radiusLg),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.picture_as_pdf_outlined,
+                                    color: Colors.white, size: SU.iconSm),
+                                SizedBox(width: SU.xs),
+                                Text(
+                                  'PDF',
+                                  style: TextStyle(
+                                    color:      Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize:   SU.textSm,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -234,11 +407,11 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
 
 // ── Tile widget ────────────────────────────────────────
 class _ExportOptionTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String label;
-  final String subtitle;
+  final IconData     icon;
+  final Color        iconColor;
+  final Color        iconBg;
+  final String       label;
+  final String       subtitle;
   final VoidCallback onTap;
 
   const _ExportOptionTile({
@@ -252,50 +425,54 @@ class _ExportOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: SU.sm,
+          vertical:   SU.sm,
+        ),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black12),
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(SU.radiusLg),
+          border:       Border.all(color: Colors.black12),
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width:  SU.wp(0.115),
+              height: SU.wp(0.115),
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(12),
+                color:        iconBg,
+                borderRadius: BorderRadius.circular(SU.radius),
               ),
-              child: Icon(icon, color: iconColor, size: 24),
+              child: Icon(icon, color: iconColor, size: SU.iconMd),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: SU.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: Colors.black87,
+                      fontSize:   SU.textMd,
+                      color:      Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: SU.xs * 0.5),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.black45),
+                    style: TextStyle(
+                        fontSize: SU.textXs, color: Colors.black45),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios,
-                size: 14, color: Colors.black38),
+            Icon(Icons.arrow_forward_ios,
+                size: SU.textSm, color: Colors.black38),
           ],
         ),
       ),

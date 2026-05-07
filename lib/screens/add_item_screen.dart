@@ -10,8 +10,8 @@ import '../services/cloudinary_service.dart';
 import 'barcode_scanner_screen.dart';
 
 // ── Palette ──────────────────────────────────────────────
-const _kCardBg    = Color(0xFFF2EADF);
-const _kInnerCard = Color(0xFFE8DDD0);
+const _kCardBg    = Color(AppConstants.modalBgValue);
+const _kInnerCard = Color(AppConstants.modalCardBgValue);
 const _kFieldBg   = Color(AppConstants.backgroundColorValue);
 const _kPrimary   = Color(AppConstants.primaryColorValue);
 const _kSuccess   = Color(AppConstants.successColorValue);
@@ -205,7 +205,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red.shade600));
+        SnackBar(content: Text(msg), backgroundColor: const Color(AppConstants.errorColorValue)));
   }
 
   void _addExtraItem() =>
@@ -671,7 +671,7 @@ class _ItemPictureSection extends StatelessWidget {
                 padding: EdgeInsets.symmetric(
                     horizontal: SU.xs + 2, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade500,
+                  color: const Color(AppConstants.errorColorValue),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('Required',
@@ -694,7 +694,7 @@ class _ItemPictureSection extends StatelessWidget {
               border: Border.all(
                 color: imageFile != null
                     ? _kPrimary
-                    : isRequired ? Colors.red.shade300 : Colors.black26,
+                    : isRequired ? const Color(AppConstants.errorColorValue).withOpacity(0.6) : Colors.black26,
                 width: imageFile != null ? 2 : 1,
               ),
             ),
@@ -708,12 +708,12 @@ class _ItemPictureSection extends StatelessWidget {
                       Icon(Icons.cloud_upload_outlined,
                           size:  SU.xl,
                           color: isRequired
-                              ? Colors.red.shade300 : Colors.black38),
+                              ? const Color(AppConstants.errorColorValue).withOpacity(0.6) : Colors.black38),
                       SizedBox(height: SU.xs),
                       Text('Upload Picture',
                           style: TextStyle(
                               color:    isRequired
-                                  ? Colors.red.shade400 : Colors.black45,
+                                  ? const Color(AppConstants.errorColorValue) : Colors.black45,
                               fontSize: SU.textSm)),
                     ],
                   ),
@@ -970,11 +970,11 @@ InputDecoration _kInputDeco(String hint, IconData? icon) {
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.red.shade400),
+      borderSide: BorderSide(color: const Color(AppConstants.errorColorValue)),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
+      borderSide: BorderSide(color: const Color(AppConstants.errorColorValue), width: 1.5),
     ),
   );
 }

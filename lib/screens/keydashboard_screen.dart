@@ -8,13 +8,14 @@ import '../services/key_service.dart';
 import '../widgets/kondo_app_bar.dart';
 import '../widgets/export_bottom_sheet.dart';
 import '../utils/export_helper.dart' as helper;
+import '../widgets/confirm_dialog.dart';
 import 'addkey_screen.dart';
 import 'keys_inandout_screen.dart';
 import 'barcode_scanner_screen.dart';
 
-// ── Palette ─────────────────────────────────────────────────────────────
-const _kModalBg       = Color(0xFFF2EADF); // warm beige — easy on eyes
-const _kModalCardBg   = Color(0xFFE8DDD0); // slightly darker beige for cards
+// ── Palette ──────────────────────────────────────────────────────────────
+const _kModalBg       = Color(AppConstants.modalBgValue);
+const _kModalCardBg   = Color(AppConstants.modalCardBgValue);
 const _kFieldBg       = Colors.white;
 const _kBorderColor   = Colors.black38;
 const _kBorderFocused = Color(AppConstants.primaryColorValue);
@@ -31,8 +32,8 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
   late final KeyService _keyService;
   List<KeyGroupModel> _allGroups      = [];
   List<KeyGroupModel> _filteredGroups = [];
-  bool _isLoading    = true;
-  bool _isExporting  = false;
+  bool _isLoading   = true;
+  bool _isExporting = false;
   String _searchQuery = '';
 
   @override
@@ -55,7 +56,7 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     }
@@ -99,39 +100,40 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
       return;
     }
 
-    // Show sheet — returns null if dismissed
     final result = await ExportBottomSheet.show(context);
     if (result == null || !mounted) return;
 
-    // Apply date filter to groups based on selected range
-    final cutoff = result.range.cutoff;
+    final cutoff   = result.range.cutoff;
     final filtered = cutoff == null
         ? _allGroups
         : _allGroups.where((g) => g.date.isAfter(cutoff)).toList();
 
     if (filtered.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No data found for ${result.range.label}.'),
-        ),
+        SnackBar(content: Text('No data found for ${result.range.label}.')),
       );
       return;
     }
 
     setState(() => _isExporting = true);
     try {
-      if (result.isExcel) {
-        await helper.ExportHelper.exportKeyGroupsToExcel(context, filtered);
-      } else {
-        await helper.ExportHelper.exportKeyGroupsToPdf(context, filtered);
-      }
+if (result.isExcel) {
+  await helper.ExportHelper.exportKeyGroupsToExcel(
+    context,
+    filtered,
+    download: result.isDownload,
+  );
+} else {
+  await helper.ExportHelper.exportKeyGroupsToPdf(
+    context,
+    filtered,
+    download: result.isDownload,
+  );
+}
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
+          SnackBar(content: Text('Export failed: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     } finally {
@@ -152,17 +154,18 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
           showSettings: false,
           actions: [
             if (_isExporting)
-              const Padding(
-                padding: EdgeInsets.only(right: 16),
+              Padding(
+                padding: EdgeInsets.only(right: SU.md),
                 child: SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  width:  SU.iconSm,
+                  height: SU.iconSm,
+                  child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                 ),
               )
             else
               IconButton(
                 onPressed: _handleExport,
-                icon: const Icon(Icons.upload_file, color: Colors.white, size: 22),
+                icon: Icon(Icons.upload_file, color: Colors.white, size: SU.iconMd),
                 tooltip: 'Export',
               ),
           ],
@@ -205,39 +208,54 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
                 SizedBox(height: SU.hp(0.02)),
 
                 // Key List header + search
-                Row(
-                  children: [
-                    const Icon(Icons.key, color: Colors.black87, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Key Groups',
-                      style: TextStyle(
-                        fontSize: SU.textLg,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: SU.wp(0.38),
-                      height: 38,
-                      child: TextField(
-                        onChanged: _onSearch,
-                        decoration: InputDecoration(
-                          hintText: 'Search...',
-                          prefixIcon: const Icon(Icons.search, size: 18, color: Colors.black45),
-                          filled: true,
-                          fillColor: const Color(AppConstants.lightOrangeValue),
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+// Key List header + search
+Row(
+  children: [
+    Container(
+      width: 28, 
+      height: 28,
+      decoration: BoxDecoration(
+        color: const Color(AppConstants.primaryColorValue),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(
+        Icons.key, 
+        color: Colors.white, 
+        size: 16
+      ),
+    ),
+    SizedBox(width: SU.xs),
+    Text(
+      'Key Groups',
+      style: TextStyle(
+        fontSize:   SU.textLg,
+        fontWeight: FontWeight.w700,
+        color:      Colors.black87,
+      ),
+    ),
+    const Spacer(),
+    SizedBox(
+      width:  SU.wp(0.38),
+      height: SU.hp(0.048),
+      child: TextField(
+        onChanged: _onSearch,
+        style: TextStyle(fontSize: SU.textSm),
+        decoration: InputDecoration(
+          hintText:  'Search...',
+          hintStyle: TextStyle(fontSize: SU.textSm),
+          prefixIcon: Icon(Icons.search, size: SU.iconSm, color: Colors.black45),
+          filled:    true,
+          fillColor: const Color(AppConstants.lightOrangeValue),
+          contentPadding: EdgeInsets.zero,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(SU.radiusLg),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    ),
+  ],
+),
 
                 SizedBox(height: SU.hp(0.015)),
 
@@ -255,13 +273,15 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
                         ? Center(
                             child: Padding(
                               padding: EdgeInsets.all(SU.xl),
-                              child: const Text('No key groups found.',
-                                  style: TextStyle(color: Colors.grey)),
+                              child: Text(
+                                'No key groups found.',
+                                style: TextStyle(color: Colors.grey, fontSize: SU.textSm),
+                              ),
                             ),
                           )
                         : _KeyTable(
                             groups: _filteredGroups,
-                            onView:  _showGroupModal,
+                            onView: _showGroupModal,
                           ),
               ],
             ),
@@ -274,8 +294,8 @@ class _KeyDashboardScreenState extends State<KeyDashboardScreen> {
 
 // ── Action Card ────────────────────────────────────────
 class _ActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
+  final IconData     icon;
+  final String       label;
   final VoidCallback onTap;
 
   const _ActionCard({required this.icon, required this.label, required this.onTap});
@@ -288,7 +308,7 @@ class _ActionCard extends StatelessWidget {
       child: Container(
         height: SU.actionCardH,
         decoration: BoxDecoration(
-          color: const Color(AppConstants.lightOrangeValue),
+          color:        const Color(AppConstants.lightOrangeValue),
           borderRadius: BorderRadius.circular(SU.radiusLg),
         ),
         child: Column(
@@ -299,9 +319,9 @@ class _ActionCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: SU.textLg,
+                fontSize:   SU.textLg,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color:      Colors.black87,
               ),
             ),
           ],
@@ -313,24 +333,25 @@ class _ActionCard extends StatelessWidget {
 
 // ── Key Table ──────────────────────────────────────────
 class _KeyTable extends StatelessWidget {
-  final List<KeyGroupModel> groups;
+  final List<KeyGroupModel>        groups;
   final void Function(KeyGroupModel) onView;
 
   const _KeyTable({required this.groups, required this.onView});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(AppConstants.lightOrangeValue),
-        borderRadius: BorderRadius.circular(16),
+        color:        const Color(AppConstants.lightOrangeValue),
+        borderRadius: BorderRadius.circular(SU.radius + 4),
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.md),
             child: Row(
-              children: const [
+              children: [
                 Expanded(flex: 3, child: _TableHeader('Owner')),
                 Expanded(flex: 3, child: _TableHeader('Unit Name')),
                 Expanded(flex: 2, child: _TableHeader('Status')),
@@ -358,62 +379,74 @@ class _TableHeader extends StatelessWidget {
   const _TableHeader(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    textAlign: TextAlign.center,
-    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-  );
+  Widget build(BuildContext context) {
+    SU.init(context);
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: TextStyle(fontWeight: FontWeight.w700, fontSize: SU.textSm),
+    );
+  }
 }
 
 // ── Group Row ──────────────────────────────────────────
 class _GroupRow extends StatelessWidget {
   final KeyGroupModel group;
-  final bool isLast;
-  final VoidCallback onView;
+  final bool          isLast;
+  final VoidCallback  onView;
 
   const _GroupRow({required this.group, required this.isLast, required this.onView});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     final ownerDisplay = group.ownersName.split(' ').first;
     final statusColor  = group.hasAvailableKeys
         ? const Color(AppConstants.successColorValue)
-        : Colors.red.shade600;
+        : const Color(AppConstants.errorColorValue);
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: isLast
-            ? const BorderRadius.vertical(bottom: Radius.circular(16))
+            ? BorderRadius.vertical(bottom: Radius.circular(SU.radius + 4))
             : BorderRadius.zero,
         border: const Border(top: BorderSide(color: Color(0xFFE8D5C0), width: 0.5)),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.md),
       child: Row(
         children: [
           Expanded(
             flex: 3,
-            child: Text(ownerDisplay,
-                textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              ownerDisplay,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: SU.textSm),
+            ),
           ),
           Expanded(
             flex: 3,
-            child: Text(group.unit,
-                textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              group.unit,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: SU.textSm),
+            ),
           ),
           Expanded(
             flex: 2,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: EdgeInsets.symmetric(horizontal: SU.xs, vertical: SU.xs * 0.5),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
+                color:        statusColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(SU.radius),
               ),
               child: Text(
                 group.availabilityText,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: statusColor,
+                  fontSize:   SU.textXs,
+                  fontWeight: FontWeight.w600,
+                  color:      statusColor,
                 ),
               ),
             ),
@@ -424,15 +457,20 @@ class _GroupRow extends StatelessWidget {
               child: GestureDetector(
                 onTap: onView,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(AppConstants.successColorValue),
-                    borderRadius: BorderRadius.circular(20),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: SU.sm,
+                    vertical:   SU.xs,
                   ),
-                  child: const Text(
+                  decoration: BoxDecoration(
+                    color:        const Color(AppConstants.successColorValue),
+                    borderRadius: BorderRadius.circular(SU.radiusLg),
+                  ),
+                  child: Text(
                     'View',
                     style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12,
+                      color:      Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize:   SU.textXs,
                     ),
                   ),
                 ),
@@ -450,9 +488,9 @@ class _GroupRow extends StatelessWidget {
 // ═══════════════════════════════════════════════════════
 class _KeyGroupModal extends StatefulWidget {
   final KeyGroupModel group;
-  final KeyService keyService;
-  final VoidCallback onUpdated;
-  final VoidCallback onDeleted;
+  final KeyService    keyService;
+  final VoidCallback  onUpdated;
+  final VoidCallback  onDeleted;
 
   const _KeyGroupModal({
     required this.group,
@@ -467,10 +505,10 @@ class _KeyGroupModal extends StatefulWidget {
 
 class _KeyGroupModalState extends State<_KeyGroupModal> {
   KeyModel? _selectedKey;
-  bool _isEditing    = false;
-  bool _isAddingKey  = false;
-  bool _isSaving     = false;
-  bool _isDeleting   = false;
+  bool _isEditing   = false;
+  bool _isAddingKey = false;
+  bool _isSaving    = false;
+  bool _isDeleting  = false;
 
   String? _newKeyType;
   String  _newBarcode = '';
@@ -554,14 +592,22 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
       setState(() => _isAddingKey = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     }
   }
 
+  // ── Save with ConfirmDialog ────────────────────────────
   Future<void> _updateSelectedKey() async {
     if (_selectedKey == null) return;
+
+    final confirmed = await ConfirmDialog.showSave(
+      context,
+      message: 'Save changes to "${_selectedKey!.keyType}"?',
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _isSaving = true);
     try {
       await widget.keyService.updateKey(_selectedKey!.id, {
@@ -585,7 +631,7 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     }
@@ -634,34 +680,22 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     }
   }
 
+  // ── Delete with ConfirmDialog ──────────────────────────
   Future<void> _deleteSelectedKey() async {
     if (_selectedKey == null) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: _kModalBg,
-        title: const Text('Delete Key', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: Text('Delete key "${_selectedKey!.keyType}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+
+    final confirmed = await ConfirmDialog.showDelete(
+      context,
+      message: 'Delete key "${_selectedKey!.keyType}"? This action cannot be undone.',
     );
-    if (confirm != true) return;
+    if (!confirmed || !mounted) return;
+
     setState(() => _isDeleting = true);
     try {
       await widget.keyService.deleteKey(_selectedKey!.id);
@@ -688,7 +722,7 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
       setState(() => _isDeleting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red.shade600),
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(AppConstants.errorColorValue)),
         );
       }
     }
@@ -707,16 +741,16 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
         vertical:   SU.hp(0.02),
       ),
       child: Container(
-        width: isSmallScreen ? size.width * 0.95 : size.width * 0.85,
+        width:       isSmallScreen ? size.width * 0.95 : size.width * 0.85,
         constraints: BoxConstraints(maxHeight: size.height * 0.9),
         decoration: BoxDecoration(
           color: _kModalBg,
           borderRadius: BorderRadius.circular(SU.radiusXl),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color:      Colors.black.withOpacity(0.15),
               blurRadius: 24,
-              offset: const Offset(0, 8),
+              offset:     const Offset(0, 8),
             ),
           ],
         ),
@@ -725,7 +759,7 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
           children: [
             // ── Header ────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              padding: EdgeInsets.fromLTRB(SU.md, SU.md, SU.md, SU.sm),
               decoration: BoxDecoration(
                 color: _kModalCardBg,
                 borderRadius: BorderRadius.vertical(
@@ -736,8 +770,8 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                 children: [
                   Flexible(
                     child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing:    SU.xs,
+                      runSpacing: SU.xs,
                       children: [
                         if (_isEditing) ...[
                           _ModalBtn(
@@ -747,7 +781,7 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                           ),
                           _ModalBtn(
                             label: _isDeleting ? '...' : 'Delete',
-                            color: Colors.red.shade500,
+                            color: const Color(AppConstants.errorColorValue),
                             onTap: _isDeleting ? null : _deleteSelectedKey,
                           ),
                           _ModalBtn(
@@ -774,7 +808,7 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, color: Colors.black54, size: 24),
+                    child: Icon(Icons.close, color: Colors.black54, size: SU.iconMd),
                   ),
                 ],
               ),
@@ -783,17 +817,17 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
             // ── Scrollable body ────────────────────
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(SU.md),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Group info card
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(SU.sm),
                       decoration: BoxDecoration(
-                        color: _kModalCardBg,
+                        color:        _kModalCardBg,
                         borderRadius: BorderRadius.circular(SU.radius),
-                        border: Border.all(color: Colors.black12),
+                        border:       Border.all(color: Colors.black12),
                       ),
                       child: Row(
                         children: [
@@ -803,42 +837,47 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                               children: [
                                 Text(
                                   widget.group.unit,
-                                  style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87,
+                                  style: TextStyle(
+                                    fontSize:   SU.textLg,
+                                    fontWeight: FontWeight.w700,
+                                    color:      Colors.black87,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: SU.xs * 0.5),
                                 Text(
                                   widget.group.ownersName,
-                                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                  style: TextStyle(fontSize: SU.textXs, color: Colors.black54),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: SU.sm,
+                              vertical:   SU.xs * 0.5,
+                            ),
                             decoration: BoxDecoration(
                               color: widget.group.hasAvailableKeys
                                   ? const Color(AppConstants.successColorValue).withOpacity(0.15)
-                                  : Colors.red.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
+                                  : const Color(AppConstants.errorColorValue).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(SU.radius),
                               border: Border.all(
                                 color: widget.group.hasAvailableKeys
                                     ? const Color(AppConstants.successColorValue)
-                                    : Colors.red.shade400,
+                                    : const Color(AppConstants.errorColorValue),
                                 width: 0.8,
                               ),
                             ),
                             child: Text(
                               widget.group.availabilityText,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize:   SU.textXs,
                                 fontWeight: FontWeight.w600,
                                 color: widget.group.hasAvailableKeys
                                     ? const Color(AppConstants.successColorValue)
-                                    : Colors.red.shade600,
+                                    : const Color(AppConstants.errorColorValue),
                               ),
                             ),
                           ),
@@ -846,41 +885,54 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: SU.md),
 
                     // Keys list
                     if (!_isAddingKey && widget.group.keys.isNotEmpty) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: SU.sm,
+                          vertical:   SU.xs,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(AppConstants.primaryColorValue).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(SU.xs),
                         ),
                         child: Row(
-                          children: const [
-                            SizedBox(width: 24),
+                          children: [
+                            SizedBox(width: SU.iconSm),
                             Expanded(
                               flex: 2,
-                              child: Text('Key Type',
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
+                              child: Text(
+                                'Key Type',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize:   SU.textXs,
+                                ),
+                              ),
                             ),
                             Expanded(
                               flex: 2,
-                              child: Text('Barcode',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
+                              child: Text(
+                                'Barcode',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize:   SU.textXs,
+                                ),
+                              ),
                             ),
-                            SizedBox(width: 80),
+                            SizedBox(width: SU.wp(0.2)),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: SU.xs),
                       Container(
                         constraints: BoxConstraints(maxHeight: size.height * 0.28),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color:        Colors.white,
                           borderRadius: BorderRadius.circular(SU.radius),
-                          border: Border.all(color: _kBorderColor),
+                          border:       Border.all(color: _kBorderColor),
                         ),
                         child: SingleChildScrollView(
                           child: Column(
@@ -898,17 +950,17 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: SU.lg),
                     ],
 
                     // Add key form
                     if (_isAddingKey && _isEditing) ...[
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(SU.sm),
                         decoration: BoxDecoration(
-                          color: _kModalCardBg,
+                          color:        _kModalCardBg,
                           borderRadius: BorderRadius.circular(SU.radiusLg),
-                          border: Border.all(color: _kBorderColor),
+                          border:       Border.all(color: _kBorderColor),
                         ),
                         child: Column(
                           children: [
@@ -918,27 +970,36 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                                 Row(
                                   children: [
                                     Container(
-                                      width: 32, height: 32,
+                                      width:  SU.wp(0.08),
+                                      height: SU.wp(0.08),
                                       decoration: BoxDecoration(
                                         color: const Color(AppConstants.primaryColorValue),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(SU.xs),
                                       ),
-                                      child: const Icon(Icons.key, color: Colors.white, size: 17),
+                                      child: Icon(Icons.key, color: Colors.white, size: SU.textMd),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Text('Add Key',
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                                    SizedBox(width: SU.xs),
+                                    Text(
+                                      'Add Key',
+                                      style: TextStyle(
+                                        fontSize:   SU.textMd,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 GestureDetector(
                                   onTap: () => setState(() => _isAddingKey = false),
-                                  child: const Icon(Icons.close, size: 22, color: Colors.black54),
+                                  child: Icon(Icons.close, size: SU.iconMd, color: Colors.black54),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _DashBarcodeRow(barcode: _newBarcode, onScanTap: _scanNewBarcode),
-                            const SizedBox(height: 10),
+                            SizedBox(height: SU.sm),
+                            _DashBarcodeRow(
+                              barcode:   _newBarcode,
+                              onScanTap: _scanNewBarcode,
+                            ),
+                            SizedBox(height: SU.sm),
                             _DashDropdown(
                               value:     _newKeyType,
                               hint:      'Key Type',
@@ -946,21 +1007,23 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                               items:     keyTypeOptions,
                               onChanged: (v) => setState(() => _newKeyType = v),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: SU.sm),
                             SizedBox(
-                              width: double.infinity,
-                              height: 48,
+                              width:  double.infinity,
+                              height: SU.hp(0.058),
                               child: ElevatedButton(
                                 onPressed: _addKeyToGroup,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(AppConstants.successColorValue),
-                                  shape: const StadiumBorder(),
-                                  elevation: 0,
+                                  shape:           const StadiumBorder(),
+                                  elevation:       0,
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Add Key',
                                   style: TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15,
+                                    color:      Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize:   SU.textMd,
                                   ),
                                 ),
                               ),
@@ -968,19 +1031,19 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: SU.lg),
                     ],
 
                     // Selected key detail form
                     if (_selectedKey != null && !_isAddingKey) ...[
                       const Divider(color: Colors.black26),
-                      const SizedBox(height: 12),
+                      SizedBox(height: SU.sm),
                       _KeyDetailsForm(
-                        keyModel:   _selectedKey!,
+                        keyModel:  _selectedKey!,
                         isEditMode: _isEditing,
                         onChanged:  (updated) => setState(() => _selectedKey = updated),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: SU.lg),
                     ],
                   ],
                 ),
@@ -995,10 +1058,10 @@ class _KeyGroupModalState extends State<_KeyGroupModal> {
 
 // ── Key List Item ──────────────────────────────────────
 class _KeyListItem extends StatelessWidget {
-  final KeyModel keyModel;
-  final bool isSelected;
-  final bool isEditMode;
-  final bool isCheckedOut; // ← real status passed from group
+  final KeyModel     keyModel;
+  final bool         isSelected;
+  final bool         isEditMode;
+  final bool         isCheckedOut;
   final VoidCallback onTap;
   final VoidCallback onScan;
 
@@ -1013,85 +1076,90 @@ class _KeyListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: SU.sm, vertical: SU.sm),
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(AppConstants.primaryColorValue).withOpacity(0.08)
               : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5)),
+          border: const Border(
+            bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.5),
+          ),
         ),
         child: Row(
           children: [
             Icon(
               Icons.key,
-              size: 16,
+              size:  SU.textMd,
               color: isSelected
                   ? const Color(AppConstants.primaryColorValue)
                   : Colors.black45,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: SU.xs),
             Expanded(
               flex: 2,
               child: Text(
                 keyModel.keyType,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize:   SU.textSm,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected
+                  color:      isSelected
                       ? const Color(AppConstants.primaryColorValue)
                       : Colors.black87,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: SU.xs),
             Expanded(
               flex: 2,
               child: Text(
                 keyModel.barcode,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11, fontFamily: 'monospace', color: Colors.black54,
+                style: TextStyle(
+                  fontSize:   SU.textXs,
+                  fontFamily: 'monospace',
+                  color:      Colors.black54,
                 ),
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: EdgeInsets.symmetric(horizontal: SU.xs, vertical: SU.xs * 0.5),
               decoration: BoxDecoration(
                 color: isCheckedOut
-                    ? Colors.red.withOpacity(0.15)
+                    ? const Color(AppConstants.errorColorValue).withOpacity(0.15)
                     : const Color(AppConstants.successColorValue).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(SU.xs),
                 border: Border.all(
                   color: isCheckedOut
-                      ? Colors.red.withOpacity(0.4)
+                      ? const Color(AppConstants.errorColorValue).withOpacity(0.4)
                       : const Color(AppConstants.successColorValue).withOpacity(0.4),
                 ),
               ),
               child: Text(
                 isCheckedOut ? 'Out' : 'Available',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize:   SU.textXs * 0.9,
                   fontWeight: FontWeight.w600,
                   color: isCheckedOut
-                      ? Colors.red.shade600
+                      ? const Color(AppConstants.errorColorValue)
                       : const Color(AppConstants.successColorValue),
                 ),
               ),
             ),
             if (isEditMode) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: SU.xs),
               GestureDetector(
                 onTap: onScan,
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(SU.xs),
                   decoration: BoxDecoration(
-                    color: const Color(AppConstants.primaryColorValue),
-                    borderRadius: BorderRadius.circular(8),
+                    color:        const Color(AppConstants.primaryColorValue),
+                    borderRadius: BorderRadius.circular(SU.xs),
                   ),
-                  child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 16),
+                  child: Icon(Icons.qr_code_scanner, color: Colors.white, size: SU.textMd),
                 ),
               ),
             ],
@@ -1104,8 +1172,8 @@ class _KeyListItem extends StatelessWidget {
 
 // ── Key Details Form ───────────────────────────────────
 class _KeyDetailsForm extends StatefulWidget {
-  final KeyModel keyModel;
-  final bool isEditMode;
+  final KeyModel   keyModel;
+  final bool       isEditMode;
   final Function(KeyModel) onChanged;
 
   const _KeyDetailsForm({
@@ -1141,13 +1209,13 @@ class _KeyDetailsFormState extends State<_KeyDetailsForm> {
   void initState() {
     super.initState();
     final k = widget.keyModel;
-    _ownerCtrl      = TextEditingController(text: k.ownersName);
-    _unitCtrl       = TextEditingController(text: k.unit);
-    _keyHolderCtrl  = TextEditingController(text: k.keyHolder);
-    _selectedDate   = k.date;
-    _keyType        = keyTypeOptions.contains(k.keyType) ? k.keyType : null;
-    _unitStatus     = unitStatusOptions.contains(k.unitStatus) ? k.unitStatus : null;
-    _keyCode        = keyCodeOptions.contains(k.keyCode) ? k.keyCode : null;
+    _ownerCtrl     = TextEditingController(text: k.ownersName);
+    _unitCtrl      = TextEditingController(text: k.unit);
+    _keyHolderCtrl = TextEditingController(text: k.keyHolder);
+    _selectedDate  = k.date;
+    _keyType       = keyTypeOptions.contains(k.keyType)    ? k.keyType    : null;
+    _unitStatus    = unitStatusOptions.contains(k.unitStatus) ? k.unitStatus : null;
+    _keyCode       = keyCodeOptions.contains(k.keyCode)    ? k.keyCode    : null;
 
     if (widget.isEditMode) {
       _ownerCtrl.addListener(_notifyChange);
@@ -1209,17 +1277,19 @@ class _KeyDetailsFormState extends State<_KeyDetailsForm> {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.isEditMode ? 'Edit Key Details' : 'Key Details',
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: SU.textMd),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: SU.sm),
 
         _ModalRow(
-          leftLabel: 'Owner', rightLabel: 'Unit',
+          leftLabel:  'Owner',
+          rightLabel: 'Unit',
           leftChild: widget.isEditMode
               ? _ModalTextField(controller: _ownerCtrl)
               : _ModalReadOnly(text: _ownerCtrl.text),
@@ -1227,52 +1297,54 @@ class _KeyDetailsFormState extends State<_KeyDetailsForm> {
               ? _ModalTextField(controller: _unitCtrl)
               : _ModalReadOnly(text: _unitCtrl.text),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: SU.sm),
 
         _ModalRow(
-          leftLabel: 'Key Code', rightLabel: 'Type',
+          leftLabel:  'Key Code',
+          rightLabel: 'Type',
           leftChild: widget.isEditMode
               ? _ModalDropdown(
-                  value: _keyCode,
-                  items: keyCodeOptions,
+                  value:     _keyCode,
+                  items:     keyCodeOptions,
                   onChanged: (v) { setState(() => _keyCode = v); _notifyChange(); },
                 )
               : _ModalReadOnly(text: _keyCode ?? '-'),
           rightChild: widget.isEditMode
               ? _ModalDropdown(
-                  value: _keyType,
-                  items: keyTypeOptions,
+                  value:     _keyType,
+                  items:     keyTypeOptions,
                   onChanged: (v) { setState(() => _keyType = v); _notifyChange(); },
                 )
               : _ModalReadOnly(text: _keyType ?? '-'),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: SU.sm),
 
         _ModalRow(
-          leftLabel: 'Key Holder', rightLabel: 'Unit Status',
+          leftLabel:  'Staff Key Holder',
+          rightLabel: 'Unit Status',
           leftChild: widget.isEditMode
               ? _ModalTextField(controller: _keyHolderCtrl)
               : _ModalReadOnly(text: _keyHolderCtrl.text),
           rightChild: widget.isEditMode
               ? _ModalDropdown(
-                  value: _unitStatus,
-                  items: unitStatusOptions,
+                  value:     _unitStatus,
+                  items:     unitStatusOptions,
                   onChanged: (v) { setState(() => _unitStatus = v); _notifyChange(); },
                 )
               : _ModalReadOnly(text: _unitStatus ?? '-'),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: SU.sm),
 
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _ModalLabel('Date'),
-            const SizedBox(height: 6),
+            _ModalLabel('Date'),
+            SizedBox(height: SU.xs),
             widget.isEditMode
                 ? GestureDetector(
                     onTap: _pickDate,
                     child: _ModalReadOnly(
-                      text: DateFormat('yyyy-MM-dd').format(_selectedDate),
+                      text:      DateFormat('yyyy-MM-dd').format(_selectedDate),
                       isEditing: true,
                     ),
                   )
@@ -1301,20 +1373,21 @@ class _ModalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Column(
       children: [
         Row(
           children: [
             Expanded(child: _ModalLabel(leftLabel)),
-            const SizedBox(width: 12),
+            SizedBox(width: SU.sm),
             Expanded(child: _ModalLabel(rightLabel)),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: SU.xs),
         Row(
           children: [
             Expanded(child: leftChild),
-            const SizedBox(width: 12),
+            SizedBox(width: SU.sm),
             Expanded(child: rightChild),
           ],
         ),
@@ -1328,32 +1401,44 @@ class _ModalLabel extends StatelessWidget {
   const _ModalLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87),
-  );
+  Widget build(BuildContext context) {
+    SU.init(context);
+    return Text(
+      text,
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize:   SU.textSm,
+        color:      Colors.black87,
+      ),
+    );
+  }
 }
 
 class _ModalBtn extends StatelessWidget {
-  final String label;
-  final Color color;
+  final String       label;
+  final Color        color;
   final VoidCallback? onTap;
 
   const _ModalBtn({required this.label, required this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: SU.md, vertical: SU.xs),
         decoration: BoxDecoration(
-          color: onTap != null ? color : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(20),
+          color:        onTap != null ? color : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(SU.radiusLg),
         ),
         child: Text(
           label,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+          style: TextStyle(
+            color:      Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize:   SU.textXs,
+          ),
         ),
       ),
     );
@@ -1362,29 +1447,32 @@ class _ModalBtn extends StatelessWidget {
 
 class _ModalTextField extends StatelessWidget {
   final TextEditingController controller;
-
   const _ModalTextField({required this.controller});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return TextField(
       controller: controller,
-      textAlign: TextAlign.center,
-      style: const TextStyle(fontSize: 13),
+      textAlign:  TextAlign.center,
+      style:      TextStyle(fontSize: SU.textSm),
       decoration: InputDecoration(
-        filled: true,
+        filled:    true,
         fillColor: _kFieldBg,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        contentPadding: EdgeInsets.symmetric(
+          vertical:   SU.sm,
+          horizontal: SU.sm,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderFocused, width: 1.5),
         ),
       ),
@@ -1394,17 +1482,17 @@ class _ModalTextField extends StatelessWidget {
 
 class _ModalReadOnly extends StatelessWidget {
   final String text;
-  final bool isEditing;
-
+  final bool   isEditing;
   const _ModalReadOnly({required this.text, this.isEditing = false});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      padding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.sm),
       decoration: BoxDecoration(
         color: _kFieldBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(SU.radius),
         border: Border.all(
           color: isEditing ? _kBorderFocused : _kBorderColor,
           width: isEditing ? 1.5 : 1,
@@ -1413,95 +1501,109 @@ class _ModalReadOnly extends StatelessWidget {
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 13),
+        style: TextStyle(fontSize: SU.textSm),
       ),
     );
   }
 }
 
 class _ModalDropdown extends StatelessWidget {
-  final String? value;
+  final String?  value;
   final List<String> items;
   final void Function(String?) onChanged;
 
-  const _ModalDropdown({required this.value, required this.items, required this.onChanged});
+  const _ModalDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return DropdownButtonFormField<String>(
-      value: value,
+      value:    value,
       onChanged: onChanged,
-      isDense: true,
+      isDense:  true,
       decoration: InputDecoration(
-        filled: true,
+        filled:    true,
         fillColor: _kFieldBg,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        contentPadding: EdgeInsets.symmetric(
+          vertical:   SU.sm - 2,
+          horizontal: SU.sm,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderFocused, width: 1.5),
         ),
       ),
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black45, size: 18),
+      icon:          Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black45, size: SU.iconSm),
       dropdownColor: _kModalBg,
-      items: items
-          .map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12))))
-          .toList(),
+      items: items.map((e) => DropdownMenuItem(
+        value: e,
+        child: Text(e, style: TextStyle(fontSize: SU.textXs)),
+      )).toList(),
     );
   }
 }
 
-// ── Shared Dash widgets (reused in Add Key modal) ──────
+// ── Shared Dash widgets ────────────────────────────────
 class _DashBarcodeRow extends StatelessWidget {
-  final String barcode;
+  final String       barcode;
   final VoidCallback onScanTap;
 
   const _DashBarcodeRow({required this.barcode, required this.onScanTap});
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     final hasValue = barcode.isNotEmpty;
     return Row(
       children: [
         Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.md),
             decoration: BoxDecoration(
-              color: _kFieldBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kBorderColor),
+              color:        _kFieldBg,
+              borderRadius: BorderRadius.circular(SU.radius),
+              border:       Border.all(color: _kBorderColor),
             ),
             child: Text(
               hasValue ? barcode : 'Scan Barcode',
               style: TextStyle(
-                fontSize: 14,
-                color: hasValue ? Colors.black87 : Colors.black38,
+                fontSize:   SU.textSm,
+                color:      hasValue ? Colors.black87 : Colors.black38,
                 fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: SU.sm),
         ElevatedButton.icon(
           onPressed: onScanTap,
-          icon: const Icon(Icons.qr_code_scanner, size: 16, color: Colors.white),
+          icon: Icon(Icons.qr_code_scanner, size: SU.textMd, color: Colors.white),
           label: Text(
             hasValue ? 'Rescan' : 'Scan',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+            style: TextStyle(
+              color:      Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize:   SU.textSm,
+            ),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: hasValue
                 ? Colors.orange.shade700
                 : const Color(AppConstants.successColorValue),
-            shape: const StadiumBorder(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            shape:     const StadiumBorder(),
+            padding: EdgeInsets.symmetric(horizontal: SU.md, vertical: SU.sm),
             elevation: 0,
           ),
         ),
@@ -1511,8 +1613,8 @@ class _DashBarcodeRow extends StatelessWidget {
 }
 
 class _DashDropdown extends StatelessWidget {
-  final String? value;
-  final String hint;
+  final String?  value;
+  final String   hint;
   final IconData icon;
   final List<String> items;
   final void Function(String?) onChanged;
@@ -1527,32 +1629,33 @@ class _DashDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return DropdownButtonFormField<String>(
-      value: value,
+      value:    value,
       onChanged: onChanged,
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-        prefixIcon: Icon(icon, color: Colors.black38, size: 18),
-        filled: true,
+        hintText:  hint,
+        hintStyle: TextStyle(color: Colors.black38, fontSize: SU.textSm),
+        prefixIcon: Icon(icon, color: Colors.black38, size: SU.iconSm),
+        filled:    true,
         fillColor: _kFieldBg,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.md),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SU.radius),
           borderSide: const BorderSide(color: _kBorderFocused, width: 1.5),
         ),
       ),
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black38),
+      icon:          Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black38, size: SU.iconSm),
       dropdownColor: _kModalBg,
-      style: const TextStyle(fontSize: 14, color: Colors.black87),
+      style:         TextStyle(fontSize: SU.textSm, color: Colors.black87),
       items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
     );
   }

@@ -7,8 +7,8 @@ class ItemModel {
   // ── Unit of Measurement ─────────────────────────────
   final String   unitType;         // "Liquid" | "Solid" | "Count"
   final String   baseUnit;         // "mL" | "g" | "pcs" — always smallest, stored in DB
-  final String   preferredUnit;    // "L" | "kg" | "pcs" — what staff prefers to see/use
-  final double   conversionFactor; // for Count only
+  final String   preferredUnit;    // "L" | "kg" | "pack" | "pcs" — what staff prefers
+  final double   conversionFactor; // for Count: pcs per pack; else 1
 
   // ── Stock (always in base unit in DB) ───────────────
   final double   quantity;
@@ -38,40 +38,45 @@ class ItemModel {
     required this.stockStatus,
   });
 
-  bool get isConsumable => itemType == 'Consumable';
-  bool get isLiquid     => unitType == 'Liquid';
-  bool get isSolid      => unitType == 'Solid';
-  bool get isCount      => unitType == 'Count';
+  bool get isConsumable    => itemType == 'Consumable';
+  bool get isNonConsumable => itemType == 'NonConsumable';
+  bool get isLiquid        => unitType == 'Liquid';
+  bool get isSolid         => unitType == 'Solid';
+  bool get isCount         => unitType == 'Count';
+
+  /// Whether this Count item uses packs (conversionFactor > 1)
+  bool get hasPack => isCount && conversionFactor > 1;
 
   /// Quantity converted from base unit to preferredUnit for display
-  /// e.g. 5000 mL → "5 L" if preferredUnit = L
   double get quantityInPreferred {
     if (!isConsumable) return quantity;
     return _convertFromBase(quantity, preferredUnit);
   }
 
-  /// MinStock converted to preferredUnit for display
   double get minStockInPreferred => _convertFromBase(minStock, preferredUnit);
-
-  /// MaxStock converted to preferredUnit for display
   double get maxStockInPreferred => _convertFromBase(maxStock, preferredUnit);
 
   double _convertFromBase(double value, String toUnit) {
     switch (toUnit) {
-      case 'mL': return value;
-      case 'L':  return value / 1000;
+      case 'mL':     return value;
+      case 'L':      return value / 1000;
       case 'gallon': return value / 3785.41;
-      case 'g':  return value;
-      case 'kg': return value / 1000;
-      case 'lb': return value / 453.592;
-      case 'pcs': return conversionFactor > 0
-          ? value / conversionFactor : value;
-      default:   return value;
+      case 'g':      return value;
+      case 'kg':     return value / 1000;
+      case 'lb':     return value / 453.592;
+      // Count — "pack" view: divide by conversionFactor
+      case 'pack':
+        return conversionFactor > 0 ? value / conversionFactor : value;
+      // Count — "pcs" view: raw pcs stored as-is
+      case 'pcs':
+        return value;
+      default:
+        return value;
     }
   }
 
   /// Nicely formatted quantity in preferredUnit
-  /// e.g. "5 L", "500 mL", "10 kg"
+  /// e.g. "5 L", "500 mL", "10 kg", "19 pack", "456 pcs"
   String get quantityDisplay {
     if (!isConsumable) return '${quantity.toInt()} pc';
     final val = quantityInPreferred;
@@ -118,6 +123,9 @@ class ItemModel {
   };
 }
 
+// ─────────────────────────────────────────────────────
+// ItemTransactionModel — now includes displayQuantity + displayUnit
+// ─────────────────────────────────────────────────────
 class ItemTransactionModel {
   final String    id;
   final String    itemId;
@@ -125,8 +133,15 @@ class ItemTransactionModel {
   final String    userId;
   final String    userName;
   final String    transactionType;
-  final double    quantity;   // always in base unit
+
+  /// Always in base unit (mL / g / pcs) — used for calculations
+  final double    quantity;
   final String    baseUnit;
+
+  /// What the user actually typed/saw — used for display in history
+  final double    displayQuantity;
+  final String    displayUnit;
+
   final String?   photoProofUrl;
   final DateTime  checkOutDate;
   final DateTime? checkInDate;
@@ -141,6 +156,8 @@ class ItemTransactionModel {
     required this.transactionType,
     required this.quantity,
     required this.baseUnit,
+    required this.displayQuantity,
+    required this.displayUnit,
     this.photoProofUrl,
     required this.checkOutDate,
     this.checkInDate,
@@ -148,6 +165,14 @@ class ItemTransactionModel {
   });
 
   bool get isIssued => status == 'Issued';
+
+  /// Formatted display string e.g. "1 kg", "2 pack", "500 mL"
+  String get displayQtyLabel {
+    final str = displayQuantity == displayQuantity.truncateToDouble()
+        ? displayQuantity.toInt().toString()
+        : displayQuantity.toStringAsFixed(1);
+    return '$str $displayUnit';
+  }
 
   factory ItemTransactionModel.fromJson(Map<String, dynamic> json) {
     return ItemTransactionModel(
@@ -159,6 +184,11 @@ class ItemTransactionModel {
       transactionType: json['transactionType'] as String,
       quantity:        (json['quantity']       as num).toDouble(),
       baseUnit:        json['baseUnit']        as String? ?? 'pcs',
+      // displayQuantity / displayUnit — fall back to base if old record
+      displayQuantity: (json['displayQuantity'] as num?)?.toDouble()
+          ?? (json['quantity'] as num).toDouble(),
+      displayUnit:     json['displayUnit']     as String?
+          ?? json['baseUnit']                  as String? ?? 'pcs',
       photoProofUrl:   json['photoProofUrl']   as String?,
       checkOutDate:    DateTime.parse(json['checkOutDate'] as String),
       checkInDate:     json['checkInDate'] != null
@@ -168,6 +198,9 @@ class ItemTransactionModel {
   }
 }
 
+// ─────────────────────────────────────────────────────
+// ItemScanResultModel — unchanged
+// ─────────────────────────────────────────────────────
 class ItemScanResultModel {
   final String  itemId;
   final String  barcode;

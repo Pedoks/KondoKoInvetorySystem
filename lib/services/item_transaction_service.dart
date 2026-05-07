@@ -13,50 +13,82 @@ class ItemTransactionService {
     'Authorization': 'Bearer $token',
   };
 
+  // ── Safe JSON decode ──────────────────────────────────
+  dynamic _safeJson(http.Response response) {
+    final body = response.body.trim();
+    if (body.isEmpty) return null;
+    try {
+      return jsonDecode(body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _errorMessage(http.Response response, String fallback) {
+    final json = _safeJson(response);
+    if (json is Map && json['message'] != null) {
+      return json['message'] as String;
+    }
+    return fallback;
+  }
+
   // ── Stock In (Consumable) ─────────────────────────────
+  // quantity     = base unit value (Flutter converts before calling)
+  // displayQty   = what the user typed/saw  (e.g. 1)
+  // displayUnit  = unit the user selected   (e.g. "kg", "L", "pack")
   Future<ItemTransactionModel> stockIn({
     required String barcode,
     required double quantity,
+    required double displayQuantity,
+    required String displayUnit,
     required String photoProofUrl,
   }) async {
     final response = await http.post(
       Uri.parse('${AppConstants.itemTransactionsEndpoint}/stockin'),
       headers: _headers,
       body: jsonEncode({
-        'barcode':       barcode,
-        'quantity':      quantity,
-        'photoProofUrl': photoProofUrl,
+        'barcode':         barcode,
+        'quantity':        quantity,
+        'displayQuantity': displayQuantity,
+        'displayUnit':     displayUnit,
+        'photoProofUrl':   photoProofUrl,
       }),
     );
 
     if (response.statusCode == 200) {
-      return ItemTransactionModel.fromJson(jsonDecode(response.body));
+      final json = _safeJson(response);
+      if (json == null) throw Exception('Empty response from server.');
+      return ItemTransactionModel.fromJson(json);
     }
-    final body = jsonDecode(response.body);
-    throw Exception(body['message'] ?? 'Stock in failed');
+    throw Exception(_errorMessage(response, 'Stock in failed'));
   }
 
   // ── Stock Out (Consumable) ────────────────────────────
   Future<ItemTransactionModel> stockOut({
     required String barcode,
     required double quantity,
+    required double displayQuantity,
+    required String displayUnit,
     required String photoProofUrl,
   }) async {
     final response = await http.post(
       Uri.parse('${AppConstants.itemTransactionsEndpoint}/stockout'),
       headers: _headers,
       body: jsonEncode({
-        'barcode':       barcode,
-        'quantity':      quantity,
-        'photoProofUrl': photoProofUrl,
+        'barcode':         barcode,
+        'quantity':        quantity,
+        'displayQuantity': displayQuantity,
+        'displayUnit':     displayUnit,
+        'photoProofUrl':   photoProofUrl,
       }),
     );
 
     if (response.statusCode == 200) {
-      return ItemTransactionModel.fromJson(jsonDecode(response.body));
+      final json = _safeJson(response);
+      if (json == null) throw Exception('Empty response from server.');
+      return ItemTransactionModel.fromJson(json);
     }
-    final body = jsonDecode(response.body);
-    throw Exception(body['message'] ?? 'Stock out failed');
+    throw Exception(_errorMessage(response, 'Stock out failed'));
   }
 
   // ── Scan Barcode (NonConsumable) ──────────────────────
@@ -67,10 +99,11 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      return ItemScanResultModel.fromJson(jsonDecode(response.body));
+      final json = _safeJson(response);
+      if (json == null) throw Exception('Empty response from server.');
+      return ItemScanResultModel.fromJson(json);
     }
-    final body = jsonDecode(response.body);
-    throw Exception(body['message'] ?? 'Scan failed');
+    throw Exception(_errorMessage(response, 'Scan failed'));
   }
 
   // ── Issue Item (NonConsumable) ────────────────────────
@@ -82,10 +115,11 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      return ItemTransactionModel.fromJson(jsonDecode(response.body));
+      final json = _safeJson(response);
+      if (json == null) throw Exception('Empty response from server.');
+      return ItemTransactionModel.fromJson(json);
     }
-    final body = jsonDecode(response.body);
-    throw Exception(body['message'] ?? 'Issue failed');
+    throw Exception(_errorMessage(response, 'Issue failed'));
   }
 
   // ── Return Item (NonConsumable) ───────────────────────
@@ -97,10 +131,11 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      return ItemTransactionModel.fromJson(jsonDecode(response.body));
+      final json = _safeJson(response);
+      if (json == null) throw Exception('Empty response from server.');
+      return ItemTransactionModel.fromJson(json);
     }
-    final body = jsonDecode(response.body);
-    throw Exception(body['message'] ?? 'Return failed');
+    throw Exception(_errorMessage(response, 'Return failed'));
   }
 
   // ── My Issued ─────────────────────────────────────────
@@ -111,7 +146,9 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final json = _safeJson(response);
+      if (json == null) return [];
+      final List<dynamic> data = json;
       return data.map((j) => ItemTransactionModel.fromJson(j)).toList();
     }
     throw Exception('Failed to load issued items');
@@ -125,7 +162,9 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final json = _safeJson(response);
+      if (json == null) return [];
+      final List<dynamic> data = json;
       return data.map((j) => ItemTransactionModel.fromJson(j)).toList();
     }
     throw Exception('Failed to load history');
@@ -139,7 +178,9 @@ class ItemTransactionService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final json = _safeJson(response);
+      if (json == null) return [];
+      final List<dynamic> data = json;
       return data.map((j) => ItemTransactionModel.fromJson(j)).toList();
     }
     throw Exception('Failed to load global history');

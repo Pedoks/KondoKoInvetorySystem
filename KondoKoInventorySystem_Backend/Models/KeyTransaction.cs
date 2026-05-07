@@ -32,4 +32,7 @@ public class KeyTransaction
 
     [BsonElement("status")]
     public string Status { get; set; } = "CheckedOut"; // CheckedOut | CheckedIn
+
+    [BsonElement("keyType")]
+    public string KeyType { get; set; } = string.Empty;
 }

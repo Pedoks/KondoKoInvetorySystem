@@ -12,13 +12,15 @@ import '../services/cloudinary_service.dart';
 import 'barcode_scanner_screen.dart';
 
 // ── Palette ──────────────────────────────────────────────
-const _kBg         = Color(0xFFFFF3E8); // app background
-const _kCardBg     = Color(0xFFF2EADF); // warm beige card
-const _kInnerCard  = Color(0xFFE8DDD0); // slightly darker
-const _kFieldBg    = Colors.white;
-const _kBorder     = Colors.black26;
-const _kPrimary    = Color(AppConstants.primaryColorValue);
-const _kSuccess    = Color(AppConstants.successColorValue);
+const _kBg        = Color(AppConstants.backgroundColorValue);
+const _kCardBg    = Color(AppConstants.modalBgValue);
+const _kInnerCard = Color(AppConstants.modalCardBgValue);
+const _kFieldBg   = Colors.white;
+const _kBorder    = Colors.black26;
+const _kPrimary   = Color(AppConstants.primaryColorValue);
+const _kStockIn   = Color(AppConstants.successColorValue);
+const _kStockOut  = Color(AppConstants.errorColorValue);
+const _kRemove    = Color(AppConstants.errorColorValue);
 
 class StockInOutScreen extends StatefulWidget {
   final String token;
@@ -95,6 +97,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
       if (_cart.containsKey(item.id)) {
         _cart[item.id]!.qty++;
       } else {
+        // Default to preferredUnit so display matches item list
         _cart[item.id] = _CartEntry(
           item:         item,
           qty:          1,
@@ -125,7 +128,10 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
 
   Future<void> _pickProofImage() async {
     final picked = await _picker.pickImage(
-        source: ImageSource.gallery, maxWidth: 1024, imageQuality: 80);
+        source:                ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        maxWidth:              1024,
+        imageQuality:          80);
     if (picked != null && mounted) {
       setState(() => _proofImage = File(picked.path));
     }
@@ -143,26 +149,38 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
     setState(() => _isSubmitting = true);
     try {
       final proofUrl = await _cloudinary.uploadImage(_proofImage!);
+
       for (final entry in _cart.values) {
+        // Base qty — what gets sent to backend for stock calculation
         final baseQty = UOM.toBase(
           entry.qty.toDouble(),
           entry.selectedUnit,
           conversionFactor: entry.item.conversionFactor,
         );
+
+        // Display values — what gets stored for history display
+        final displayQty  = entry.qty.toDouble();
+        final displayUnit = entry.selectedUnit;
+
         if (_isStockIn) {
           await _txService.stockIn(
-            barcode:       entry.item.barcode,
-            quantity:      baseQty,
-            photoProofUrl: proofUrl,
+            barcode:         entry.item.id,
+            quantity:        baseQty,
+            displayQuantity: displayQty,
+            displayUnit:     displayUnit,
+            photoProofUrl:   proofUrl,
           );
         } else {
           await _txService.stockOut(
-            barcode:       entry.item.barcode,
-            quantity:      baseQty,
-            photoProofUrl: proofUrl,
+            barcode:         entry.item.id,
+            quantity:        baseQty,
+            displayQuantity: displayQty,
+            displayUnit:     displayUnit,
+            photoProofUrl:   proofUrl,
           );
         }
       }
+
       _showSuccess('${_isStockIn ? "Stock In" : "Stock Out"} confirmed!');
       setState(() {
         _cart.clear();
@@ -229,15 +247,19 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg), backgroundColor: Colors.red.shade600));
+        content: Text(msg),
+        backgroundColor: const Color(AppConstants.errorColorValue)));
   }
 
   void _showSuccess(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg), backgroundColor: _kSuccess));
+        content: Text(msg), backgroundColor: _kStockIn));
   }
 
+  // ══════════════════════════════════════════════════════
+  // BUILD
+  // ══════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     SU.init(context);
@@ -272,8 +294,8 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                           decoration: InputDecoration(
                             prefixIcon: Icon(Icons.search,
                                 size: SU.iconSm, color: Colors.black45),
-                            filled:    true,
-                            fillColor: _kCardBg,
+                            filled:     true,
+                            fillColor:  _kCardBg,
                             contentPadding: EdgeInsets.zero,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -289,7 +311,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
 
                   // ── Tab pills ─────────────────────────
                   Container(
-                    padding: EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: _kCardBg,
                       borderRadius: BorderRadius.circular(30),
@@ -390,7 +412,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                     ),
                     // Stock In / Out toggle
                     Expanded(
-                      flex: 3,
+                      flex: 4,
                       child: PopupMenuButton<bool>(
                         onSelected: (val) =>
                             setState(() => _isStockIn = val),
@@ -401,21 +423,30 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                           padding: EdgeInsets.symmetric(
                               horizontal: SU.sm, vertical: 6),
                           decoration: BoxDecoration(
-                            color: _isStockIn
-                                ? _kSuccess : Colors.red.shade500,
+                            color: _isStockIn ? _kStockIn : _kStockOut,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                _isStockIn ? 'Stock In' : 'Stock Out',
-                                style: TextStyle(
-                                    color:      Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize:   SU.textXs),
+                              Icon(
+                                _isStockIn
+                                    ? Icons.arrow_downward_rounded
+                                    : Icons.arrow_upward_rounded,
+                                color: Colors.white,
+                                size:  SU.iconSm - 4,
+                              ),
+                              SizedBox(width: SU.xs),
+                              Flexible(
+                                child: Text(
+                                  _isStockIn ? 'Stock In' : 'Stock Out',
+                                  style: TextStyle(
+                                      color:      Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize:   SU.textXs),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               const Icon(
                                   Icons.keyboard_arrow_down_rounded,
@@ -427,24 +458,21 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                           PopupMenuItem(
                             value: true,
                             child: Row(children: [
-                              Icon(Icons.add_circle_outline,
-                                  color: _kSuccess, size: 16),
+                              const Icon(Icons.arrow_downward_rounded,
+                                  color: _kStockIn, size: 16),
                               SizedBox(width: SU.sm),
                               Text('Stock In',
-                                  style: TextStyle(
-                                      fontSize: SU.textSm)),
+                                  style: TextStyle(fontSize: SU.textSm)),
                             ]),
                           ),
                           PopupMenuItem(
                             value: false,
                             child: Row(children: [
-                              Icon(Icons.remove_circle_outline,
-                                  color: Colors.red.shade500,
-                                  size: 16),
+                              const Icon(Icons.arrow_upward_rounded,
+                                  color: _kStockOut, size: 16),
                               SizedBox(width: SU.sm),
                               Text('Stock Out',
-                                  style: TextStyle(
-                                      fontSize: SU.textSm)),
+                                  style: TextStyle(fontSize: SU.textSm)),
                             ]),
                           ),
                         ],
@@ -464,10 +492,10 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                 )
               else
                 ..._filteredItems.asMap().entries.map((entry) {
-                  final isLast  = entry.key == _filteredItems.length - 1;
-                  final item    = entry.value;
-                  final inCart  = _cart.containsKey(item.id);
-                  final ce      = _cart[item.id];
+                  final isLast = entry.key == _filteredItems.length - 1;
+                  final item   = entry.value;
+                  final inCart = _cart.containsKey(item.id);
+                  final ce     = _cart[item.id];
                   return _ConsumableRow(
                     item:         item,
                     isLast:       isLast,
@@ -487,7 +515,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
 
         SizedBox(height: SU.md),
 
-        // ── Proof upload ──────────────────────────
+        // ── Proof upload (only when cart has items) ───
         if (_cart.isNotEmpty) ...[
           Container(
             padding: EdgeInsets.all(SU.md),
@@ -521,8 +549,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                     width: 140, height: 140,
                     decoration: BoxDecoration(
                       color: _kInnerCard,
-                      borderRadius:
-                          BorderRadius.circular(SU.radiusLg),
+                      borderRadius: BorderRadius.circular(SU.radiusLg),
                       border: Border.all(color: _kBorder),
                     ),
                     child: _proofImage != null
@@ -532,8 +559,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                             child: Image.file(_proofImage!,
                                 fit: BoxFit.cover))
                         : Column(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.cloud_upload_outlined,
                                   size: SU.xl, color: Colors.black38),
@@ -555,7 +581,6 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
         // ── Total + Confirm ───────────────────────
         _TotalConfirmBar(
           total:        _totalCartItems,
-          unit:         '',
           confirmLabel: _isStockIn ? 'Confirm Stock In' : 'Confirm Stock Out',
           isLoading:    _isSubmitting,
           disabled:     _cart.isEmpty,
@@ -572,7 +597,6 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
   Widget _buildNonConsumableTab() {
     return Column(
       children: [
-        // Scan row
         Container(
           padding: EdgeInsets.all(SU.md),
           decoration: BoxDecoration(
@@ -608,7 +632,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                       decoration: BoxDecoration(
                         color:        _kFieldBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _kBorder),
+                        border:       Border.all(color: _kBorder),
                       ),
                       child: Text(
                         _barcodeCtrl.text.isNotEmpty
@@ -619,6 +643,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                           color:    _barcodeCtrl.text.isNotEmpty
                               ? Colors.black87 : Colors.black38,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -657,9 +682,9 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
               padding: EdgeInsets.symmetric(
                   horizontal: SU.lg, vertical: SU.sm),
               decoration: BoxDecoration(
-                color: _kCardBg,
+                color:        _kCardBg,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _kBorder),
+                border:       Border.all(color: _kBorder),
               ),
               child: Text('+ Add another',
                   style: TextStyle(
@@ -671,7 +696,6 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
           SizedBox(height: SU.md),
           _TotalConfirmBar(
             total:        _scannedItems.length,
-            unit:         'item(s)',
             confirmLabel: 'Confirm Issue',
             isLoading:    _isIssuing,
             disabled:     _scannedItems.isEmpty,
@@ -692,7 +716,7 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.qr_code_scanner,
-                      size: 36,
+                      size:  36,
                       color: Colors.black.withOpacity(0.2)),
                 ),
                 SizedBox(height: SU.sm),
@@ -711,7 +735,9 @@ class _StockInOutScreenState extends State<StockInOutScreen> {
   }
 }
 
-// ── Cart Entry ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// CART ENTRY
+// ══════════════════════════════════════════════════════
 class _CartEntry {
   final ItemModel item;
   int    qty;
@@ -723,17 +749,40 @@ class _CartEntry {
     required this.selectedUnit,
   });
 
+  /// Base quantity — sent to backend for stock calculation
   double get baseQty => UOM.toBase(
     qty.toDouble(),
     selectedUnit,
     conversionFactor: item.conversionFactor,
   );
 
-  String get displayQty =>
-      '${UOM.formatDisplay(baseQty, item.baseUnit)} ($qty $selectedUnit)';
+  /// Display quantity — stored in transaction for history
+  double get displayQty => qty.toDouble();
+
+  /// Display unit — stored in transaction for history
+  String get displayUnit => selectedUnit;
+
+  /// Stock in currently selected unit (for the stock column)
+  String get stockInSelectedUnit {
+    final converted = UOM.fromBase(
+      item.quantity,
+      selectedUnit,
+      conversionFactor: item.conversionFactor,
+    );
+    return UOM.formatDisplay(converted, selectedUnit);
+  }
+
+  /// Secondary hint — "= X pcs" when unit is pack, or "= X pack" when pcs
+  String? get packHint => UOM.packHint(
+    qty.toDouble(),
+    selectedUnit,
+    item.conversionFactor,
+  );
 }
 
-// ── Consumable Row ─────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// CONSUMABLE ROW
+// ══════════════════════════════════════════════════════
 class _ConsumableRow extends StatelessWidget {
   final ItemModel   item;
   final bool        isLast;
@@ -762,7 +811,28 @@ class _ConsumableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     SU.init(context);
-    final availableUnits = UOM.unitsFor(item.unitType);
+
+    // Available units — includes 'pack' when conversionFactor > 1
+    final availableUnits = UOM.unitsFor(
+      item.unitType,
+      conversionFactor: item.conversionFactor,
+    );
+    final hasMultiUnit = availableUnits.length > 1;
+
+    // Stock display: show in selected unit if in cart, else preferred unit
+    String stockDisplay;
+    if (inCart && cartEntry != null) {
+      stockDisplay = cartEntry!.stockInSelectedUnit;
+    } else {
+      stockDisplay = UOM.formatDisplay(
+        UOM.fromBase(
+          item.quantity,
+          item.preferredUnit,
+          conversionFactor: item.conversionFactor,
+        ),
+        item.preferredUnit,
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -776,8 +846,9 @@ class _ConsumableRow extends StatelessWidget {
       padding: EdgeInsets.symmetric(
           vertical: SU.sm, horizontal: SU.sm),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Item
+          // Col 1: Item name + image
           Expanded(
             flex: 4,
             child: Row(
@@ -786,7 +857,8 @@ class _ConsumableRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   child: item.imageUrl.isNotEmpty
                       ? Image.network(item.imageUrl,
-                          width: 28, height: 28, fit: BoxFit.cover,
+                          width: 28, height: 28,
+                          fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _Thumb())
                       : _Thumb(),
                 ),
@@ -800,106 +872,60 @@ class _ConsumableRow extends StatelessWidget {
             ),
           ),
 
-          // Stock
+          // Col 2: Stock (dynamic — changes with unit selection)
           Expanded(
             flex: 3,
             child: Text(
-              UOM.formatDisplay(item.quantity, item.baseUnit),
+              stockDisplay,
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: SU.textXs, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 
-          // Action
+          // Col 3: Action
           Expanded(
-            flex: 3,
+            flex: 4,
             child: inCart && cartEntry != null
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (availableUnits.length > 1)
-                        DropdownButton<String>(
-                          value:     cartEntry!.selectedUnit,
-                          isDense:   true,
-                          underline: const SizedBox(),
-                          dropdownColor: _kCardBg,
-                          style: TextStyle(
-                              fontSize: SU.textXs,
-                              color:    Colors.black87),
-                          items: availableUnits
-                              .map((u) => DropdownMenuItem(
-                                  value: u, child: Text(u)))
-                              .toList(),
-                          onChanged: (u) {
-                            if (u != null) onUnitChange(u);
-                          },
-                        ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _SmallBtn(
-                              icon:      Icons.remove,
-                              color:     _kInnerCard,
-                              iconColor: Colors.black87,
-                              onTap:     onDec),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: SU.xs),
-                            child: Text('${cartEntry!.qty}',
-                                style: TextStyle(
-                                    fontSize:   SU.textXs,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                          _SmallBtn(
-                              icon:      Icons.add,
-                              color:     _kPrimary,
-                              iconColor: Colors.white,
-                              onTap:     onInc),
-                          SizedBox(width: SU.xs),
-                          GestureDetector(
-                            onTap: onDelete,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: SU.xs, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade500,
-                                borderRadius:
-                                    BorderRadius.circular(20),
-                              ),
-                              child: Text('X',
-                                  style: TextStyle(
-                                      color:      Colors.white,
-                                      fontSize:   SU.textXs,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '= ${UOM.formatDisplay(cartEntry!.baseQty, item.baseUnit)}',
-                        style: TextStyle(
-                            fontSize: SU.textXs - 1,
-                            color:    Colors.black45),
-                      ),
-                    ],
+                ? _InCartWidget(
+                    cartEntry:      cartEntry!,
+                    availableUnits: availableUnits,
+                    hasMultiUnit:   hasMultiUnit,
+                    onInc:          onInc,
+                    onDec:          onDec,
+                    onDelete:       onDelete,
+                    onUnitChange:   onUnitChange,
                   )
                 : GestureDetector(
                     onTap: onAdd,
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                          horizontal: SU.sm, vertical: 5),
+                          horizontal: SU.sm, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isStockIn
-                            ? _kSuccess : Colors.red.shade500,
+                        color: isStockIn ? _kStockIn : _kStockOut,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(
-                        isStockIn ? '+ Add' : '- Out',
-                        style: TextStyle(
-                            color:      Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize:   SU.textXs),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isStockIn
+                                ? Icons.arrow_downward_rounded
+                                : Icons.arrow_upward_rounded,
+                            color: Colors.white,
+                            size:  SU.textSm,
+                          ),
+                          SizedBox(width: 2),
+                          Text(
+                            isStockIn ? 'Add' : 'Out',
+                            style: TextStyle(
+                                color:      Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize:   SU.textXs),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -910,7 +936,144 @@ class _ConsumableRow extends StatelessWidget {
   }
 }
 
-// ── Scanned Item Card ──────────────────────────────────
+// ══════════════════════════════════════════════════════
+// IN-CART WIDGET
+// ══════════════════════════════════════════════════════
+class _InCartWidget extends StatelessWidget {
+  final _CartEntry   cartEntry;
+  final List<String> availableUnits;
+  final bool         hasMultiUnit;
+  final VoidCallback onInc;
+  final VoidCallback onDec;
+  final VoidCallback onDelete;
+  final void Function(String) onUnitChange;
+
+  const _InCartWidget({
+    required this.cartEntry,
+    required this.availableUnits,
+    required this.hasMultiUnit,
+    required this.onInc,
+    required this.onDec,
+    required this.onDelete,
+    required this.onUnitChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    SU.init(context);
+    final hint = cartEntry.packHint;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Row 1: Unit chips (only if more than 1 unit available)
+        if (hasMultiUnit) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: availableUnits.map((unit) {
+                final selected = cartEntry.selectedUnit == unit;
+                return Padding(
+                  padding: EdgeInsets.only(right: SU.xs / 2),
+                  child: GestureDetector(
+                    onTap: () => onUnitChange(unit),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: SU.xs + 2, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: selected ? _kPrimary : _kInnerCard,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: selected ? _kPrimary : Colors.black26,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        unit,
+                        style: TextStyle(
+                          color:      selected ? Colors.white : Colors.black54,
+                          fontWeight: FontWeight.w700,
+                          fontSize:   SU.textXs - 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(height: SU.xs / 2),
+        ],
+
+// Row 2: [−] qty [+]  [X]
+Row(
+  mainAxisSize: MainAxisSize.max,        // ← was min
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    _SmallBtn(
+        icon:      Icons.remove,
+        color:     Colors.transparent,
+        iconColor: Colors.black54,
+        onTap:     onDec),
+    Flexible(                            // ← wrap in Flexible
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: SU.xs / 2),  // ← tighter padding
+        child: FittedBox(                // ← auto-shrinks text to fit
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '${cartEntry.qty} ${cartEntry.selectedUnit}',
+            style: TextStyle(
+                fontSize:   SU.textSm,
+                fontWeight: FontWeight.w800,
+                color:      Colors.black87),
+            maxLines: 1,
+          ),
+        ),
+      ),
+    ),
+    _SmallBtn(
+        icon:      Icons.add,
+        color:     Colors.transparent,
+        iconColor: Colors.black54,
+        onTap:     onInc),
+    SizedBox(width: SU.xs / 2),         // ← tighter gap before X
+    GestureDetector(
+      onTap: onDelete,
+      child: Container(
+        width:  SU.wp(0.055),
+        height: SU.wp(0.055),
+        decoration: BoxDecoration(
+          color:        _kRemove,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(Icons.close,
+            color: Colors.white, size: SU.textXs + 1),
+      ),
+    ),
+  ],
+),
+
+        // Row 3: Pack hint — "= 48 pcs" or "= 2 pack"
+        if (hint != null) ...[
+          SizedBox(height: SU.xs / 2),
+          Text(
+            hint,
+            style: TextStyle(
+                fontSize: SU.textXs - 1, color: Colors.black38),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SHARED WIDGETS
+// ══════════════════════════════════════════════════════
+
 class _ScannedItemCard extends StatelessWidget {
   final ItemScanResultModel item;
   final VoidCallback        onDismiss;
@@ -943,11 +1106,8 @@ class _ScannedItemCard extends StatelessWidget {
               child: Container(
                 width: 28, height: 28,
                 decoration: BoxDecoration(
-                  color: _kInnerCard,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.close,
-                    size: 16, color: Colors.black54),
+                  color: _kInnerCard, shape: BoxShape.circle),
+                child: Icon(Icons.close, size: 16, color: Colors.black54),
               ),
             ),
           ),
@@ -960,13 +1120,12 @@ class _ScannedItemCard extends StatelessWidget {
               ),
               child: item.imageUrl.isNotEmpty
                   ? ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(SU.radiusLg),
+                      borderRadius: BorderRadius.circular(SU.radiusLg),
                       child: Image.network(item.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Icon(
                               Icons.inventory_2_outlined,
-                              size: SU.xl,
+                              size:  SU.xl,
                               color: Colors.black26)))
                   : Icon(Icons.inventory_2_outlined,
                       size: SU.xl, color: Colors.black26),
@@ -986,10 +1145,8 @@ class _ScannedItemCard extends StatelessWidget {
   }
 }
 
-// ── Total + Confirm Bar ────────────────────────────────
 class _TotalConfirmBar extends StatelessWidget {
   final int        total;
-  final String     unit;
   final String     confirmLabel;
   final bool       isLoading;
   final bool       disabled;
@@ -998,7 +1155,6 @@ class _TotalConfirmBar extends StatelessWidget {
 
   const _TotalConfirmBar({
     required this.total,
-    required this.unit,
     required this.confirmLabel,
     required this.isLoading,
     required this.disabled,
@@ -1032,7 +1188,7 @@ class _TotalConfirmBar extends StatelessWidget {
                   style: TextStyle(
                       fontSize: SU.textSm, color: Colors.black54)),
               Text(
-                '$total ${unit.isNotEmpty ? unit : ""}',
+                '$total',
                 style: TextStyle(
                     fontSize:   SU.textXl * 1.1,
                     fontWeight: FontWeight.w800,
@@ -1046,9 +1202,9 @@ class _TotalConfirmBar extends StatelessWidget {
             child: ElevatedButton(
               onPressed: (disabled || isLoading) ? null : onConfirm,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _kSuccess,
+                backgroundColor:        isStockIn ? _kStockIn : _kStockOut,
                 disabledBackgroundColor: Colors.grey.shade300,
-                shape: const StadiumBorder(),
+                shape:                  const StadiumBorder(),
                 padding: EdgeInsets.symmetric(horizontal: SU.lg),
                 elevation: 0,
               ),
@@ -1057,11 +1213,25 @@ class _TotalConfirmBar extends StatelessWidget {
                       height: 20, width: 20,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5))
-                  : Text(confirmLabel,
-                      style: TextStyle(
-                          color:      Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize:   SU.textMd)),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isStockIn
+                              ? Icons.arrow_downward_rounded
+                              : Icons.arrow_upward_rounded,
+                          color: Colors.white,
+                          size:  SU.iconSm,
+                        ),
+                        SizedBox(width: SU.xs),
+                        Text(confirmLabel,
+                            style: TextStyle(
+                                color:      Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize:   SU.textSm),
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -1070,13 +1240,13 @@ class _TotalConfirmBar extends StatelessWidget {
   }
 }
 
-// ── Tab Pill ───────────────────────────────────────────
 class _TabPill extends StatelessWidget {
   final String       label;
   final bool         isActive;
   final VoidCallback onTap;
 
-  const _TabPill({required this.label, required this.isActive, required this.onTap});
+  const _TabPill(
+      {required this.label, required this.isActive, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1087,7 +1257,7 @@ class _TabPill extends StatelessWidget {
         padding: EdgeInsets.symmetric(
             horizontal: SU.md, vertical: SU.xs + 4),
         decoration: BoxDecoration(
-          color: isActive ? _kSuccess : Colors.transparent,
+          color: isActive ? _kStockIn : Colors.transparent,
           borderRadius: BorderRadius.circular(26),
         ),
         child: Text(label,
@@ -1100,7 +1270,6 @@ class _TabPill extends StatelessWidget {
   }
 }
 
-// ── Section Icon ───────────────────────────────────────
 class _SectionIcon extends StatelessWidget {
   final IconData icon;
   const _SectionIcon(this.icon);
@@ -1111,15 +1280,12 @@ class _SectionIcon extends StatelessWidget {
     return Container(
       width: 32, height: 32,
       decoration: BoxDecoration(
-        color: _kPrimary,
-        borderRadius: BorderRadius.circular(9),
-      ),
+        color: _kPrimary, borderRadius: BorderRadius.circular(9)),
       child: Icon(icon, color: Colors.white, size: SU.iconSm),
     );
   }
 }
 
-// ── Scan Button ────────────────────────────────────────
 class _ScanButton extends StatelessWidget {
   final VoidCallback onTap;
   const _ScanButton({required this.onTap});
@@ -1129,25 +1295,22 @@ class _ScanButton extends StatelessWidget {
     SU.init(context);
     return ElevatedButton.icon(
       onPressed: onTap,
-      icon: const Icon(Icons.qr_code_scanner,
-          size: 16, color: Colors.white),
+      icon:  const Icon(Icons.qr_code_scanner, size: 16, color: Colors.white),
       label: Text('Scan',
           style: TextStyle(
               color:      Colors.white,
               fontWeight: FontWeight.w700,
               fontSize:   SU.textMd)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: _kSuccess,
+        backgroundColor: _kStockIn,
         shape:           const StadiumBorder(),
-        padding:
-            EdgeInsets.symmetric(horizontal: SU.md, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: SU.md, vertical: 14),
         elevation: 0,
       ),
     );
   }
 }
 
-// ── Card helpers ───────────────────────────────────────
 class _CardLabel extends StatelessWidget {
   final String text;
   const _CardLabel(this.text);
@@ -1170,15 +1333,15 @@ class _CardReadOnly extends StatelessWidget {
     SU.init(context);
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-          vertical: SU.sm, horizontal: SU.sm),
+      padding: EdgeInsets.symmetric(vertical: SU.sm, horizontal: SU.sm),
       decoration: BoxDecoration(
-        color: _kFieldBg,
+        color:        _kFieldBg,
         borderRadius: BorderRadius.circular(SU.radius),
-        border: Border.all(color: _kBorder),
+        border:       Border.all(color: _kBorder),
       ),
       child: Text(text,
-          style: TextStyle(fontSize: SU.textSm)),
+          style: TextStyle(fontSize: SU.textSm),
+          overflow: TextOverflow.ellipsis),
     );
   }
 }
@@ -1189,9 +1352,7 @@ class _Thumb extends StatelessWidget {
     return Container(
       width: 28, height: 28,
       decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(6),
-      ),
+        color: _kCardBg, borderRadius: BorderRadius.circular(6)),
       child: const Icon(Icons.inventory_2_outlined,
           size: 14, color: Colors.black45),
     );
@@ -1213,13 +1374,15 @@ class _SmallBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SU.init(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 22, height: 22,
+        width:  SU.wp(0.07),
+        height: SU.wp(0.07),
         decoration: BoxDecoration(
-            color: color, borderRadius: BorderRadius.circular(6)),
-        child: Icon(icon, size: 13, color: iconColor),
+            color: color, borderRadius: BorderRadius.circular(7)),
+        child: Icon(icon, size: SU.textMd, color: iconColor),
       ),
     );
   }

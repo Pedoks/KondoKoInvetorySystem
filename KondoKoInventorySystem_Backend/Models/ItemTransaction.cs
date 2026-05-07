@@ -32,6 +32,15 @@ public class ItemTransaction
     [BsonElement("baseUnit")]
     public string BaseUnit { get; set; } = "pcs";
 
+    // ── Display fields (what user saw/typed) ──────────
+    /// Quantity in the unit the user selected (e.g. 1 for 1 kg)
+    [BsonElement("displayQuantity")]
+    public double DisplayQuantity { get; set; } = 1;
+
+    /// Unit the user selected (e.g. "kg", "L", "pack", "pcs")
+    [BsonElement("displayUnit")]
+    public string DisplayUnit { get; set; } = "pcs";
+
     [BsonElement("photoProofUrl")]
     public string? PhotoProofUrl { get; set; } = null;
 

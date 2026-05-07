@@ -21,6 +21,7 @@ public class KeyTransactionResponseDto
     public DateTime  CheckOutDate { get; set; }
     public DateTime? CheckInDate  { get; set; }
     public string    Status       { get; set; } = string.Empty;
+    public string KeyType { get; set; } = string.Empty;
 }
 
 // Lightweight response for scan lookup

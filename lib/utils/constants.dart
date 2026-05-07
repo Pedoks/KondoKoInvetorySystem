@@ -24,11 +24,20 @@ class AppConstants {
   static const String cloudinaryUploadUrl    =
       'https://api.cloudinary.com/v1_1/ddjmli7v8/image/upload';
 
-  // ── Colors ───────────────────────────────────────────
-  static const int primaryColorValue    = 0xFFFA821E;
-  static const int lightOrangeValue     = 0xFFFDBA74;
-  static const int backgroundColorValue = 0xFFFFF3E8;
-  static const int successColorValue    = 0xFF22C55E;
+// ── Colors ───────────────────────────────────────────
+static const int primaryColorValue = 0xFFE07B2A;
+static const int lightOrangeValue     = 0xFFFDE3B8;
+static const int backgroundColorValue = 0xFFFFF7EF;
+static const int successColorValue    = 0xFF558A67;
+static const int errorColorValue   = 0xFFC46060;
+static const int modalBgValue     = 0xFFF5EDE4;
+static const int modalCardBgValue = 0xFFEDE3D8;
+
+static const int stockInColorValue   = 0xFF3AADA0;
+static const int stockOutColorValue  = 0xFFEA7D5F;
+static const int stepMinusColorValue = 0xFFB8C0C8;
+static const int warningColorValue = 0xFFEA7D5F;
+static const int neutralColorValue = 0xFFA5A5A5;
 
   // ── Storage Keys ─────────────────────────────────────
   static const String tokenKey = 'jwt_token';

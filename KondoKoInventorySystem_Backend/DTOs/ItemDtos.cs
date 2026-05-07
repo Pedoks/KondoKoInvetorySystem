@@ -56,6 +56,11 @@ public class ItemTransactionResponseDto
     public string    TransactionType { get; set; } = string.Empty;
     public double    Quantity        { get; set; } = 1;
     public string    BaseUnit        { get; set; } = "pcs";
+
+    // ── Display fields ────────────────────────────────
+    public double    DisplayQuantity { get; set; } = 1;
+    public string    DisplayUnit     { get; set; } = "pcs";
+
     public string?   PhotoProofUrl   { get; set; } = null;
     public DateTime  CheckOutDate    { get; set; }
     public DateTime? CheckInDate     { get; set; }
@@ -64,16 +69,20 @@ public class ItemTransactionResponseDto
 
 public class StockInDto
 {
-    public string Barcode       { get; set; } = string.Empty;
-    public double Quantity      { get; set; } = 1; // already in base unit
-    public string PhotoProofUrl { get; set; } = string.Empty;
+    public string Barcode         { get; set; } = string.Empty;
+    public double Quantity        { get; set; } = 1;    // in base unit
+    public double DisplayQuantity { get; set; } = 1;    // what user typed
+    public string DisplayUnit     { get; set; } = "pcs"; // what user selected
+    public string PhotoProofUrl   { get; set; } = string.Empty;
 }
 
 public class StockOutDto
 {
-    public string Barcode       { get; set; } = string.Empty;
-    public double Quantity      { get; set; } = 1; // already in base unit
-    public string PhotoProofUrl { get; set; } = string.Empty;
+    public string Barcode         { get; set; } = string.Empty;
+    public double Quantity        { get; set; } = 1;    // in base unit
+    public double DisplayQuantity { get; set; } = 1;    // what user typed
+    public string DisplayUnit     { get; set; } = "pcs"; // what user selected
+    public string PhotoProofUrl   { get; set; } = string.Empty;
 }
 
 public class IssueItemDto

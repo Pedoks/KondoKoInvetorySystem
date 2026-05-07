@@ -32,52 +32,64 @@ public class ItemTransactionsController : ControllerBase
     }
 
     // POST api/itemtransactions/stockin
-    [HttpPost("stockin")]
-    public async Task<IActionResult> StockIn([FromBody] StockInDto dto)
+[HttpPost("stockin")]
+public async Task<IActionResult> StockIn([FromBody] StockInDto dto)
+{
+    var userId   = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+    var userName = User.FindFirstValue(ClaimTypes.GivenName)
+                   ?? User.FindFirstValue(ClaimTypes.Email)
+                   ?? "Unknown";
+    try
     {
-        var userId   = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
-        var userName = User.FindFirstValue(ClaimTypes.GivenName)
-                       ?? User.FindFirstValue(ClaimTypes.Email)
-                       ?? "Unknown";
-        try
-        {
-            var result = await _service.StockInAsync(
-                dto.Barcode, userId, userName, dto.Quantity, dto.PhotoProofUrl);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var result = await _service.StockInAsync(
+            dto.Barcode,
+            userId,
+            userName,
+            dto.Quantity,
+            dto.DisplayQuantity,   // ← NEW
+            dto.DisplayUnit,       // ← NEW
+            dto.PhotoProofUrl);
+        return Ok(result);
     }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Conflict(new { message = ex.Message });
+    }
+}
 
     // POST api/itemtransactions/stockout
-    [HttpPost("stockout")]
-    public async Task<IActionResult> StockOut([FromBody] StockOutDto dto)
+[HttpPost("stockout")]
+public async Task<IActionResult> StockOut([FromBody] StockOutDto dto)
+{
+    var userId   = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+    var userName = User.FindFirstValue(ClaimTypes.GivenName)
+                   ?? User.FindFirstValue(ClaimTypes.Email)
+                   ?? "Unknown";
+    try
     {
-        var userId   = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
-        var userName = User.FindFirstValue(ClaimTypes.GivenName)
-                       ?? User.FindFirstValue(ClaimTypes.Email)
-                       ?? "Unknown";
-        try
-        {
-            var result = await _service.StockOutAsync(
-                dto.Barcode, userId, userName, dto.Quantity, dto.PhotoProofUrl);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var result = await _service.StockOutAsync(
+            dto.Barcode,
+            userId,
+            userName,
+            dto.Quantity,
+            dto.DisplayQuantity,   // ← NEW
+            dto.DisplayUnit,       // ← NEW
+            dto.PhotoProofUrl);
+        return Ok(result);
     }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Conflict(new { message = ex.Message });
+    }
+}
 
     // POST api/itemtransactions/issue
     [HttpPost("issue")]
