@@ -643,7 +643,7 @@ class _GlobalAllHeader extends StatelessWidget {
       children: [
         Expanded(
             flex: 3,
-            child: Text('User',
+            child: Text('Staff',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontWeight: FontWeight.w700,
@@ -675,7 +675,7 @@ class _GlobalConsumableHeader extends StatelessWidget {
       children: [
         Expanded(
             flex: 3,
-            child: Text('User',
+            child: Text('Staff',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontWeight: FontWeight.w700,
@@ -728,7 +728,7 @@ class _GlobalNonConsumableHeader extends StatelessWidget {
       children: [
         Expanded(
             flex: 3,
-            child: Text('User',
+            child: Text('Staff',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontWeight: FontWeight.w700,

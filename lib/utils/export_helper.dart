@@ -6,7 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:excel/excel.dart';
-
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../models/key_group_model.dart';
 import '../models/key_transaction_model.dart';
 import '../models/item_model.dart';
@@ -54,7 +55,7 @@ class ExportHelper {
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(AppConstants.primaryColorValue)),
+                    color: PdfColor(0.992, 0.890, 0.722)),
                 children: [
                   _pdfCell('Owner',       isHeader: true),
                   _pdfCell('Unit',        isHeader: true),
@@ -94,7 +95,7 @@ class ExportHelper {
                   borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                 ),
                 child: pw.Text(
-                  '${g.unit} — ${g.ownersName}  '
+                  '${g.unit} - ${g.ownersName}  '
                   '(${g.availableKeys}/${g.totalKeys} available)',
                   style: pw.TextStyle(
                     color:      PdfColors.white,
@@ -218,7 +219,7 @@ class ExportHelper {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin:     const pw.EdgeInsets.all(32),
-        header:     (ctx) => _pdfHeader('Key Transaction History — Global Report'),
+        header:     (ctx) => _pdfHeader('Key Transaction History - Global Report'),
         footer:     (ctx) => _pdfFooter(ctx),
         build: (ctx) => [
           pw.SizedBox(height: 12),
@@ -241,9 +242,9 @@ class ExportHelper {
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(AppConstants.primaryColorValue)),
+                    color: PdfColor(0.992, 0.890, 0.722)),
                 children: [
-                  _pdfCell('User',      isHeader: true),
+                  _pdfCell('Staff',      isHeader: true),
                   _pdfCell('Unit',      isHeader: true),
                   _pdfCell('Check-Out', isHeader: true),
                   _pdfCell('Check-In',  isHeader: true),
@@ -271,7 +272,7 @@ class ExportHelper {
                     _pdfCell(
                       t.checkInDate != null
                           ? _dateFormat.format(t.checkInDate!.toLocal())
-                          : '—',
+                          : '-',
                       fontSize: 9,
                     ),
                     _pdfCell(duration, fontSize: 9),
@@ -302,7 +303,7 @@ class ExportHelper {
     excel.setDefaultSheet('Global Transaction History');
 
     _excelHeader(sheet, [
-      'User Name', 'User ID', 'Unit', 'Barcode',
+      'Staff Name', 'User ID', 'Unit', 'Barcode',
       'Check-Out Date', 'Check-In Date', 'Duration', 'Status',
     ]);
 
@@ -319,7 +320,7 @@ class ExportHelper {
         TextCellValue(
           t.checkInDate != null
               ? _dateFormat.format(t.checkInDate!.toLocal())
-              : '—',
+              : '-',
         ),
         TextCellValue(duration),
         TextCellValue(t.status),
@@ -382,7 +383,7 @@ class ExportHelper {
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(AppConstants.primaryColorValue)),
+                    color: PdfColor(0.992, 0.890, 0.722)),
                 children: [
                   _pdfCell('Item Name',   isHeader: true),
                   _pdfCell('Type',        isHeader: true),
@@ -415,7 +416,7 @@ class ExportHelper {
           // ── Consumable detail ──────────────────────
           if (consumables.isNotEmpty) ...[
             pw.SizedBox(height: 24),
-            _pdfSectionTitle('Consumable Items — Unit Detail'),
+            _pdfSectionTitle('Consumable Items - Unit Detail'),
             pw.SizedBox(height: 8),
             pw.Table(
               border: pw.TableBorder.all(
@@ -494,10 +495,10 @@ class ExportHelper {
                     _pdfCell(
                         item.description.isNotEmpty
                             ? item.description
-                            : '—',
+                            : '-',
                         fontSize: 8),
                     _pdfCell(
-                        item.barcode.isNotEmpty ? item.barcode : '—',
+                        item.barcode.isNotEmpty ? item.barcode : '-',
                         fontSize: 8),
                     _pdfCell(item.stockStatus, fontSize: 8),
                   ],
@@ -584,9 +585,9 @@ class ExportHelper {
       for (final item in nonConsumables) {
         ncSheet.appendRow([
           TextCellValue(item.itemName),
-          TextCellValue(item.barcode.isNotEmpty ? item.barcode : '—'),
+          TextCellValue(item.barcode.isNotEmpty ? item.barcode : '-'),
           TextCellValue(
-              item.description.isNotEmpty ? item.description : '—'),
+              item.description.isNotEmpty ? item.description : '-'),
           TextCellValue(item.stockStatus),
           TextCellValue(_dateShort.format(item.date)),
         ]);
@@ -604,7 +605,7 @@ class ExportHelper {
   }
 
   // ════════════════════════════════════════════════════
-  //  ITEM TRANSACTIONS  (Issued Items — Global History)
+  //  ITEM TRANSACTIONS  (Issued Items - Global History)
   // ════════════════════════════════════════════════════
 
   static Future<void> exportItemTransactionsToPdf(
@@ -629,7 +630,7 @@ class ExportHelper {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin:     const pw.EdgeInsets.all(32),
-        header:     (ctx) => _pdfHeader('Item Transaction History — Global Report'),
+        header:     (ctx) => _pdfHeader('Item Transaction History - Global Report'),
         footer:     (ctx) => _pdfFooter(ctx),
         build: (ctx) => [
           pw.SizedBox(height: 12),
@@ -659,9 +660,9 @@ class ExportHelper {
               children: [
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(
-                      color: PdfColor.fromInt(AppConstants.primaryColorValue)),
+                      color: PdfColor(0.992, 0.890, 0.722)),
                   children: [
-                    _pdfCell('User',     isHeader: true),
+                    _pdfCell('Staff',     isHeader: true),
                     _pdfCell('Item',     isHeader: true),
                     _pdfCell('Type',     isHeader: true),
                     _pdfCell('Quantity', isHeader: true),
@@ -711,9 +712,9 @@ class ExportHelper {
               children: [
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(
-                      color: PdfColor.fromInt(AppConstants.primaryColorValue)),
+                      color: PdfColor(0.992, 0.890, 0.722)),
                   children: [
-                    _pdfCell('User',      isHeader: true),
+                    _pdfCell('Staff',      isHeader: true),
                     _pdfCell('Item',      isHeader: true),
                     _pdfCell('Type',      isHeader: true),
                     _pdfCell('Issued At', isHeader: true),
@@ -743,7 +744,7 @@ class ExportHelper {
                       _pdfCell(
                         t.checkInDate != null
                             ? _dateFormat.format(t.checkInDate!.toLocal())
-                            : '—',
+                            : '-',
                         fontSize: 9,
                       ),
                       _pdfCell(duration, fontSize: 9),
@@ -775,7 +776,7 @@ class ExportHelper {
     final allSheet = excel['All Transactions'];
     excel.setDefaultSheet('All Transactions');
     _excelHeader(allSheet, [
-      'User Name', 'Item Name', 'Transaction Type', 'Quantity',
+      'Staff Name', 'Item Name', 'Transaction Type', 'Quantity',
       'Date', 'Check-In Date', 'Duration', 'Status',
     ]);
 
@@ -792,10 +793,10 @@ class ExportHelper {
         TextCellValue(
           t.checkInDate != null
               ? _dateFormat.format(t.checkInDate!.toLocal())
-              : '—',
+              : '-',
         ),
         TextCellValue(duration),
-        TextCellValue(t.status ?? '—'),
+        TextCellValue(t.status ?? '-'),
       ]);
     }
     _autoWidthHint(allSheet, 8);
@@ -810,7 +811,7 @@ class ExportHelper {
     if (consumableTxs.isNotEmpty) {
       final cSheet = excel['Consumable Transactions'];
       _excelHeader(cSheet, [
-        'User Name', 'Item Name', 'Transaction Type',
+        'Staff Name', 'Item Name', 'Transaction Type',
         'Quantity', 'Date',
       ]);
 
@@ -836,7 +837,7 @@ class ExportHelper {
     if (nonConsumableTxs.isNotEmpty) {
       final ncSheet = excel['Non-Consumable Transactions'];
       _excelHeader(ncSheet, [
-        'User Name', 'Item Name', 'Transaction Type',
+        'Staff Name', 'Item Name', 'Transaction Type',
         'Issued At', 'Returned At', 'Duration', 'Status',
       ]);
 
@@ -852,10 +853,10 @@ class ExportHelper {
           TextCellValue(
             t.checkInDate != null
                 ? _dateFormat.format(t.checkInDate!.toLocal())
-                : '—',
+                : '-',
           ),
           TextCellValue(duration),
-          TextCellValue(t.status ?? '—'),
+          TextCellValue(t.status ?? '-'),
         ]);
       }
       _autoWidthHint(ncSheet, 7);
@@ -871,7 +872,7 @@ class ExportHelper {
   }
 
   // ════════════════════════════════════════════════════
-  //  PRIVATE — PDF helpers
+  //  PRIVATE - PDF helpers
   // ════════════════════════════════════════════════════
 
   static pw.Widget _pdfHeader(String title) {
@@ -880,7 +881,7 @@ class ExportHelper {
       decoration: const pw.BoxDecoration(
         border: pw.Border(
           bottom: pw.BorderSide(
-              color: PdfColor.fromInt(AppConstants.primaryColorValue), width: 2),
+              color: PdfColor(0.992, 0.890, 0.722), width: 2),
         ),
       ),
       child: pw.Row(
@@ -930,7 +931,7 @@ class ExportHelper {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: const pw.BoxDecoration(
-        color: PdfColor.fromInt(AppConstants.primaryColorValue),
+        color: PdfColor(0.992, 0.890, 0.722),
         borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
       child: pw.Text(
@@ -957,14 +958,14 @@ class ExportHelper {
           fontSize:   fontSize,
           fontWeight: isHeader
               ? pw.FontWeight.bold : pw.FontWeight.normal,
-          color: isHeader ? PdfColors.white : PdfColors.black,
+          color: PdfColors.black,
         ),
       ),
     );
   }
 
   // ════════════════════════════════════════════════════
-  //  PRIVATE — Excel helpers
+  //  PRIVATE - Excel helpers
   // ════════════════════════════════════════════════════
 
   static void _excelHeader(Sheet sheet, List<String> headers) {
@@ -988,7 +989,7 @@ class ExportHelper {
   }
 
   // ════════════════════════════════════════════════════
-  //  PRIVATE — Share (temp dir + share sheet)
+  //  PRIVATE - Share (temp dir + share sheet)
   // ════════════════════════════════════════════════════
 
   static Future<void> _sharePdf(
@@ -1020,7 +1021,7 @@ class ExportHelper {
   }
 
   // ════════════════════════════════════════════════════
-  //  PRIVATE — Download (public Downloads folder)
+  //  PRIVATE - Download (public Downloads folder)
   //  Works on Android 10+ without extra permissions.
   //  On Android 9 and below add WRITE_EXTERNAL_STORAGE
   //  to your AndroidManifest.xml.
@@ -1055,54 +1056,54 @@ class ExportHelper {
 
   /// Resolves the public Downloads directory on Android.
   /// Falls back to the app's external storage dir if unavailable.
-  static Future<File> _downloadsFile(String filename) async {
-    // /storage/emulated/0/Download  — works on Android 10+
-    const downloadsPath = '/storage/emulated/0/Download';
-    final downloadsDir  = Directory(downloadsPath);
-
-    if (await downloadsDir.exists()) {
-      return File('$downloadsPath/$filename');
+static Future<File> _downloadsFile(String filename) async {
+  // Request permission for Android 9 and below
+  if (Platform.isAndroid) {
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    if (androidInfo.version.sdkInt <= 28) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        throw Exception('Storage permission denied');
+      }
     }
-
-    // Fallback: app-specific external directory
-    final extDir = await getExternalStorageDirectory();
-    final fallbackDir = Directory(
-        '${extDir?.path ?? (await getTemporaryDirectory()).path}/Download');
-    if (!await fallbackDir.exists()) {
-      await fallbackDir.create(recursive: true);
-    }
-    return File('${fallbackDir.path}/$filename');
   }
 
-  static void _showDownloadSnack(BuildContext context, String filename) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.download_done_rounded,
-                color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Saved to Downloads: $filename',
-                style: const TextStyle(fontSize: 13),
-                overflow: TextOverflow.ellipsis,
-              ),
+  // Public Downloads folder — visible in file manager
+  final dir = Directory('/storage/emulated/0/Download');
+  if (!await dir.exists()) {
+    await dir.create(recursive: true);
+  }
+  return File('${dir.path}/$filename');
+}
+
+static void _showDownloadSnack(BuildContext context, String filename) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          const Icon(Icons.download_done_rounded,
+              color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Saved to Downloads: $filename',
+              style: const TextStyle(fontSize: 12),
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF1565C0),
-        duration:        const Duration(seconds: 4),
-        behavior:        SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
+          ),
+        ],
       ),
-    );
-  }
+      backgroundColor: const Color(0xFF1565C0),
+      duration:        const Duration(seconds: 4),
+      behavior:        SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12)),
+    ),
+  );
+}
 
   // ════════════════════════════════════════════════════
-  //  PRIVATE — General utilities
+  //  PRIVATE - General utilities
   // ════════════════════════════════════════════════════
 
   static String _calcDuration(DateTime start, DateTime end) {

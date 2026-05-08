@@ -1,5 +1,3 @@
-// lib/widgets/export_bottom_sheet.dart
-
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/screen_util.dart';
@@ -71,8 +69,7 @@ class ExportBottomSheet extends StatefulWidget {
 
 class _ExportBottomSheetState extends State<ExportBottomSheet> {
   ExportDateRange _selected    = ExportDateRange.allTime;
-  bool            _isExcel     = true;   // which format is selected before download
-  bool            _showFormats = false;  // show format picker for download
+
 
   @override
   Widget build(BuildContext context) {
@@ -249,157 +246,7 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
           ),
 
           SizedBox(height: SU.sm),
-
-          // ── Download to Device tile ───────────────────
-          if (!_showFormats)
-            _ExportOptionTile(
-              icon:      Icons.download_outlined,
-              iconColor: const Color(0xFF1565C0),
-              iconBg:    const Color(0xFFE3F2FD),
-              label:     'Download to Device',
-              subtitle:  'Saves to Downloads folder',
-              onTap:     () => setState(() => _showFormats = true),
-            ),
-
-          // ── Format picker for download ─────────────────
-          if (_showFormats) ...[
-            Container(
-              padding: EdgeInsets.all(SU.sm),
-              decoration: BoxDecoration(
-                color:        const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(SU.radiusLg),
-                border:       Border.all(color: const Color(0xFF1565C0).withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width:  SU.wp(0.10),
-                        height: SU.wp(0.10),
-                        decoration: BoxDecoration(
-                          color:        const Color(0xFF1565C0),
-                          borderRadius: BorderRadius.circular(SU.radius),
-                        ),
-                        child: Icon(Icons.download_outlined,
-                            color: Colors.white, size: SU.iconSm),
-                      ),
-                      SizedBox(width: SU.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Download to Device',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize:   SU.textSm,
-                                color:      Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              'Choose format to save to Downloads',
-                              style: TextStyle(
-                                  fontSize: SU.textXs, color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _showFormats = false),
-                        child: Icon(Icons.close,
-                            size: SU.iconSm, color: Colors.black45),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: SU.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(
-                            context,
-                            ExportSheetResult(
-                              range:      _selected,
-                              isExcel:    true,
-                              isDownload: true,
-                            ),
-                          ),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical:   SU.sm,
-                              horizontal: SU.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color:        const Color(0xFF1D6F42),
-                              borderRadius: BorderRadius.circular(SU.radiusLg),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.table_chart_outlined,
-                                    color: Colors.white, size: SU.iconSm),
-                                SizedBox(width: SU.xs),
-                                Text(
-                                  'Excel',
-                                  style: TextStyle(
-                                    color:      Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize:   SU.textSm,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: SU.sm),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(
-                            context,
-                            ExportSheetResult(
-                              range:      _selected,
-                              isExcel:    false,
-                              isDownload: true,
-                            ),
-                          ),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical:   SU.sm,
-                              horizontal: SU.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color:        const Color(0xFFD32F2F),
-                              borderRadius: BorderRadius.circular(SU.radiusLg),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.picture_as_pdf_outlined,
-                                    color: Colors.white, size: SU.iconSm),
-                                SizedBox(width: SU.xs),
-                                Text(
-                                  'PDF',
-                                  style: TextStyle(
-                                    color:      Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize:   SU.textSm,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+],
       ),
     );
   }

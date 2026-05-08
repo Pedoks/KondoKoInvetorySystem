@@ -553,26 +553,30 @@ class _StatusBadge extends StatelessWidget {
         color = const Color(AppConstants.primaryColorValue);
         break;
       case 'Low':
-        color = Colors.orange.shade700;
+        color = const Color(AppConstants.warningColorValue);
         break;
       case 'OutOfStock':
-        color = Colors.red.shade600;
+        color = const Color(AppConstants.errorColorValue);
         break;
       default:
-        color = Colors.grey;
+        color = const Color(AppConstants.neutralColorValue);
     }
     final label = status == 'OutOfStock' ? 'Out-of-stock' : status;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: SU.sm, vertical: 3),
       decoration: BoxDecoration(
-        color:        color,
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 0.8),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color:      Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize:   SU.textXs)),
+      child: Text(
+        label,
+        style: TextStyle(
+          color:      color,
+          fontWeight: FontWeight.w600,
+          fontSize:   SU.textXs,
+        ),
+      ),
     );
   }
 }

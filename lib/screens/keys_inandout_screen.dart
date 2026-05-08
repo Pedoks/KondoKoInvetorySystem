@@ -796,10 +796,6 @@ class _TransactionTable extends StatelessWidget {
     required this.onCheckIn,
   });
 
-  // ── Flex ratios per filter ────────────────────────────
-  // checkedOut:    Unit/Key | Check-Out date | Action button
-  // history:       Unit/Key | Check-Out date | Check-In date
-  // globalHistory: User     | Unit/Key       | Transaction Period (needs most space)
   int get _col1Flex => filter == _TableFilter.globalHistory ? 2 : 3;
   int get _col2Flex => 3;
   int get _col3Flex => filter == _TableFilter.globalHistory ? 4 : 3;
@@ -824,7 +820,7 @@ class _TransactionTable extends StatelessWidget {
                 Expanded(
                   flex: _col1Flex,
                   child: Text(
-                    filter == _TableFilter.globalHistory ? 'User' : 'Unit / Key',
+                    filter == _TableFilter.globalHistory ? 'Staff' : 'Unit / Key',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
